@@ -1,0 +1,11 @@
+[project]
+name = "eqr"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+  "yfinance", "pandas", "numpy", "pyarrow", "duckdb", "matplotlib", "jinja2",
+  "weasyprint", "streamlit", "anthropic", "pydantic", "openpyxl", "pdfplumber", "pytest",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]

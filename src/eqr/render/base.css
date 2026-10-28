@@ -1,0 +1,16 @@
+@page { size: A4; margin: 12mm 12mm 14mm; @bottom-center { content: "Page " counter(page) "   Academic demo – not investment advice"; font-size: 7pt; color: #8a97a6; } }
+body { font-family: Helvetica, Arial, sans-serif; font-size: 8.5pt; color: #1a2433; }
+.page { page-break-after: always; }
+.hdr { background: #0b2a4a; color: #fff; padding: 6px 10px; display: flex; justify-content: space-between; align-items: baseline; }
+.hdr h1 { font-size: 13pt; margin: 0; } .hdr .sub { font-size: 7.5pt; opacity: .85; }
+h2 { font-size: 10pt; color: #0b2a4a; border-bottom: 2px solid #1f6fb5; margin: 10px 0 4px; padding-bottom: 2px; }
+.stats { display: flex; gap: 4px; margin: 6px 0; } .stat { flex: 1; background: #eef3f9; padding: 4px; text-align: center; }
+.stat b { display: block; font-size: 10pt; color: #0b2a4a; } .stat span { font-size: 6.5pt; color: #5b6b7d; }
+.row { display: flex; gap: 10px; } .col { flex: 1; }
+table { border-collapse: collapse; width: 100%; } th { background: #0b2a4a; color: #fff; font-weight: 600; text-align: right; padding: 2px 5px; }
+th:first-child, td:first-child { text-align: left; } td { padding: 2px 5px; text-align: right; border-bottom: 1px solid #e3e8ee; }
+tr:nth-child(even) td { background: #f6f9fc; }
+.badge { display: inline-block; background: #1f6fb5; color: #fff; font-size: 18pt; font-weight: 700; padding: 4px 12px; border-radius: 4px; }
+.pill { font-size: 7pt; color: #5b6b7d; } .note { font-size: 7pt; color: #8a97a6; margin-top: 6px; }
+.pos { color: #2e9d5b; } .neg { color: #c8393b; }
+svg { max-width: 100%; height: auto; }
