@@ -2,6 +2,7 @@
 import numpy as np
 import pandas as pd
 
+from . import asof
 from .charts.price import eps_chart, fan_chart, insider_bars, rec_bars
 from .collectors.yf import collect_estimates
 from .quant import earnings as E
@@ -21,7 +22,7 @@ def _g(df, row, col):
 
 def build(d: dict, price: float) -> dict:
     x = collect_estimates(d["ticker"])
-    today = pd.Timestamp.today().normalize()
+    today = asof.today()
     stm = d["statements"]
 
     tbl = E.surprise_table(x["earnings_dates"])

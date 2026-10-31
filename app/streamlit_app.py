@@ -26,6 +26,8 @@ st.caption("LSEG Stock Reports Plus-style detailed report · AIFA, Goethe Univer
 with st.sidebar:
     ticker = st.text_input("Ticker", "HON", help="Yahoo Finance symbol, e.g. HON, AAPL, SAP.DE").strip().upper()
     offline = st.checkbox("Offline mode (cached data only)", value=False)
+    live = st.checkbox("Use latest live data (ignore 15 Oct 2026 cut-off)", value=False,
+                       help="Default: data through the 14 Oct 2026 close, report date 15 Oct 2026, so numbers are comparable with the LSEG benchmark.")
     go = st.button("Generate report", type="primary", use_container_width=True)
     ready = sorted(p.stem.replace("_report", "") for p in (ROOT / "output").glob("*_report.pdf"))
     if ready:
@@ -34,6 +36,7 @@ with st.sidebar:
     else:
         preload = ""
 
+os.environ["EQR_AS_OF"] = "live" if live else os.environ.get("EQR_AS_OF_DEFAULT", "2026-10-15")
 os.environ["EQR_OFFLINE"] = "1" if offline else "0"
 
 

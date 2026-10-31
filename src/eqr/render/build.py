@@ -1,4 +1,4 @@
-import datetime as dt
+from .. import asof
 from pathlib import Path
 
 import jinja2
@@ -49,7 +49,7 @@ def build_context(d, ratios, risk, mom, charts, extra=None) -> dict:
     months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
     return {
         "name": info.get("longName", d["ticker"]), "ticker": d["ticker"], "sector": info.get("industry", info.get("sector", "")),
-        "date": dt.date.today().isoformat(), "key_stats": key_stats, "summary": info.get("longBusinessSummary", ""),
+        "date": asof.today().date().isoformat(), "key_stats": key_stats, "summary": info.get("longBusinessSummary", ""),
         "fundamental": fundamental, "risk": risk_rows, "momentum": mom_rows,
         "season_months": months, "season_avg": [pct(s["avg_return"].get(i, float("nan"))) for i in range(1, 13)],
         "season_pos": [pct(s["pct_positive"].get(i, float("nan")), 0) for i in range(1, 13)], **charts, **(extra or {}),

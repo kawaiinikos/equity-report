@@ -2,6 +2,7 @@
 import pandas as pd
 import yfinance as yf
 
+from .. import asof
 from ..cache import cached
 from ..config import DJIA, MARKET_INDEX
 
@@ -34,7 +35,7 @@ def collect(ticker: str) -> dict:
         data["dividends"] = cached(f"{ticker}_div", lambda: t.dividends.tz_localize(None))
     except Exception:
         data["dividends"] = pd.Series(dtype=float)
-    return data
+    return asof.apply(data)
 
 
 def collect_estimates(ticker: str) -> dict:
@@ -51,7 +52,7 @@ def collect_estimates(ticker: str) -> dict:
     out = {}
     for k, fn in getters.items():
         try:
-            out[k] = cached(f"{ticker}_{k}", fn)
+            out[k] = asof.cut_estimates(k, cached(f"{ticker}_{k}", fn))
         except Exception:
             out[k] = None
     return out

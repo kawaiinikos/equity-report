@@ -4,6 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 import numpy as np
 import pandas as pd
 
+from . import asof
 from .cache import cached
 from .charts.gauge import gauge
 from .charts.price import sparkline
@@ -27,7 +28,7 @@ def _fetch(sym: str) -> dict:
     for k, fn in {"earnings_dates": lambda: t.get_earnings_dates(limit=16), "up_down": lambda: t.upgrades_downgrades,
                   "insider_tx": lambda: t.insider_transactions}.items():
         try:
-            out[k] = cached(f"{sym}_{k}", fn)
+            out[k] = asof.cut_estimates(k, cached(f"{sym}_{k}", fn))
         except Exception:
             out[k] = None
     return out
@@ -50,6 +51,8 @@ def build(d: dict, internal: dict, scores: dict, target_earn: dict | None = None
         tk = d["ticker"]
         prices = pd.read_parquet(PRICES_PATH)
         prices.index = pd.to_datetime(prices.index)
+        if asof.as_of() is not None:
+            prices = prices[prices.index < asof.as_of()]
         close = prices.copy()
         own = d["prices"]["Close"]
         close[tk] = own.reindex(close.index).ffill()
@@ -65,7 +68,7 @@ def build(d: dict, internal: dict, scores: dict, target_earn: dict | None = None
             fetched = dict(zip(syms, ex.map(_fetch, syms)))
 
         frame = scoring.score_frame(pd.concat([uni[uni["ticker"] != tk], pd.DataFrame([target])], ignore_index=True)).set_index("ticker")
-        today = pd.Timestamp.today().normalize()
+        today = asof.today()
         avg_s, earn_s, cur_comp = {}, {}, {}
         fs = scoring.factor_scores(pd.concat([uni[uni["ticker"] != tk], pd.DataFrame([target])], ignore_index=True))
         g_earn = {k: {} for k in ("surprises", "estimate_revisions", "recommendation_changes")}

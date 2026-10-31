@@ -5,7 +5,7 @@ from pathlib import Path
 import pandas as pd
 
 from .charts.price import multiple_history, perf_bars, price_volume, score_bars
-from . import phase3, trend
+from . import asof, phase3, trend
 from .nlg.facts import build_facts
 from .nlg.generate import highlights
 from .quant import spec
@@ -23,7 +23,7 @@ from .render.build import build_context, peer_rows, render_pdf, num
 def phase2(d, ratios, close, extra_scores=None) -> dict:
     """Scores, peers and valuation pages; needs data/universe.parquet (scripts/build_universe.py)."""
     info = d["info"]
-    uni = pd.read_parquet(UNIVERSE_PATH)
+    uni = asof.universe_at(pd.read_parquet(UNIVERSE_PATH), pd.read_parquet(ROOT / "data" / "universe_prices.parquet"))
     target = {"ticker": d["ticker"], "market_cap": info.get("marketCap"), "trailing_pe": info.get("trailingPE"),
               "forward_pe": info.get("forwardPE"), "price_to_sales": info.get("priceToSalesTrailing12Months"),
               "price": float(close.iloc[-1]), "sector": None, "industry": None, "name": info.get("longName"), **ratios,

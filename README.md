@@ -2,6 +2,9 @@
 
 Ticker in, ~11-page PDF out. Data from Yahoo Finance (yfinance); scores re-implemented from the LSEG methodology (approximations noted in the report).
 
+## Data cut-off
+By default every report is built as of **2026-10-15** (data through the 14 Oct close), matching the LSEG benchmark. Prices, dividends, statements (60-day reporting lag), earnings dates, broker actions and insider trades are truncated; multiples and market cap are re-priced. Yahoo only serves the latest analyst estimates, price targets, recommendation counts and holders, so those are not rewound. Use `EQR_AS_OF=live` (or the checkbox in the app) for current data, or `EQR_AS_OF=YYYY-MM-DD` for another date.
+
 ## Quick start (macOS / Windows / Linux)
 ```
 python start.py
