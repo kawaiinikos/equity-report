@@ -81,3 +81,17 @@ def outlook(score: float | None) -> str:
         return "NR"
     lo, hi = spec.SCORE_BANDS["positive"][0], spec.SCORE_BANDS["neutral"][0]
     return "Positive" if score >= lo else "Neutral" if score >= hi else "Negative"
+
+
+def factor_scores(df: pd.DataFrame) -> pd.DataFrame:
+    """Per-factor 1-10 deciles (ticker index) for the indicator gauges; same rankings score_frame uses."""
+    df = df.reset_index(drop=True)
+    sc = score_frame(df).set_index("ticker")
+    out = pd.DataFrame(index=df["ticker"])
+    for p in FUND_COLS:
+        out[p] = sc[f"pillar_{p}"].round().clip(1, 10).values
+    for c in VAL_COLS + RISK_COLS:
+        out[c] = _decile(_pct_rank(df, c, True)).values
+    rs = pd.concat([_decile(_pct_rank(df, c, False)) for c in RS_COLS], axis=1)
+    out["relative_strength"] = rs.mean(axis=1).round().clip(1, 10).values
+    return out

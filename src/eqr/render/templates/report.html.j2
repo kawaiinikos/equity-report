@@ -5,7 +5,7 @@
   <div class="row"><div class="col" style="flex:2.2"><h2>{{ title }}</h2>
   <table class="trend"><tr><th>Peers</th><th>-6M</th><th>-3M</th><th>-1M</th><th>-1W</th><th>Current</th><th>1Y Trend</th></tr>
   {% for r in rows %}<tr {% if r.target %}style="font-weight:700"{% endif %}><td>{{ r.ticker }}</td>{% for v in r.vals[:4] %}<td>{{ v }}</td>{% endfor %}<td><span class="cur">{{ r.vals[4] }}</span></td><td class="spark">{{ r.spark|safe }}</td></tr>{% endfor %}</table></div>
-  <div class="col"><h2>Score Averages</h2><table>{% for k, v in box %}<tr><td>{{ k }}</td><td><b>{{ v }}</b></td></tr>{% endfor %}</table></div></div>
+  {% if box %}<div class="col"><h2>Score Averages</h2><table>{% for k, v in box %}<tr><td>{{ k }}</td><td><b>{{ v }}</b></td></tr>{% endfor %}</table></div>{% endif %}</div>
   <p class="note">{{ note }}</p>{% endif %}{% endmacro %}
 
 <div class="page">{{ header("DETAILED STOCK REPORT – Overview") }}
@@ -28,6 +28,7 @@
   {{ trend_block("Average Score Trend (4-Week Moving Avg)", c.avg_trend, c.avg_box, "Approximation of LSEG's stored history: Risk and Price Momentum are re-ranked weekly against the S&P 500 sector cohort using prices up to each date; Earnings is rebuilt as-of each date from reported surprises and broker up/downgrades (revisions have no history); Fundamental, Valuation and Insider are held at their latest value. The Current column is the 4-week average, so it can differ from the headline score. Sector and index averages cover the four rankable components only.") }}</div>
 
 <div class="page">{{ header("Earnings Analysis & Price Target") }}
+  {% if c.gauge_earnings %}<h2>Earnings Indicators</h2>{{ c.gauge_earnings|safe }}{% endif %}
   <div class="row"><div class="col"><h2>Earnings Score</h2><span class="badge">{{ c.earn_score }}</span>
   <table style="margin-top:6px"><tr><th>Factor</th><th>Score</th></tr>{% for n, v in c.earn_factors %}<tr><td>{{ n }}</td><td>{{ v }}</td></tr>{% endfor %}</table>
   <p class="note">Factor scores use fixed absolute bins (LSEG ranks each factor market-wide).</p></div>
@@ -51,12 +52,14 @@
   <p class="note">"Not comparable" = surprise above ±{{ c.method.surprise_outlier }}%: Yahoo often pairs a GAAP reported EPS (including investment gains) with an adjusted consensus estimate, so these quarters are excluded from the counts and the Earnings score.</p></div>
 
 <div class="page">{{ header("Fundamental Analysis") }}
+  {% if c.gauge_fundamental %}<h2>Fundamental Indicators</h2>{{ c.gauge_fundamental|safe }}{% endif %}
   <p class="pill">Four pillars, 25% weight each (renormalised if a pillar is unavailable). The Fundamental score is a decile rank of the average pillar score within the sector.</p>
   {% for pillar, rows in c.fundamental.items() %}<h2>{{ pillar }}</h2>
   <table><tr><th>Ratio</th><th>Formula</th><th>Value</th></tr>
   {% for name, formula, val in rows %}<tr><td>{{ name }}</td><td style="text-align:left;font-size:7pt;color:#5b6b7d">{{ formula }}</td><td>{{ val }}</td></tr>{% endfor %}</table>{% endfor %}</div>
 
 <div class="page">{{ header("Relative Valuation") }}
+  {% if c.gauge_valuation %}<h2>Relative Valuation Indicators</h2>{{ c.gauge_valuation|safe }}{% endif %}
   <h2>Valuation multiples</h2>
   <table><tr><th>Multiple</th><th>Current</th><th>5Y avg (proxy)</th><th>Industry median</th><th>S&amp;P 500 median</th></tr>
   {% for r in c.val_rows %}<tr>{% for v in r %}<td>{{ v }}</td>{% endfor %}</tr>{% endfor %}</table>
@@ -67,6 +70,8 @@
   <p class="note">Forward P/E and Forward PEG (current {{ c.peg }}) have no price-history series because point-in-time consensus estimates are not available from Yahoo Finance; the current values and benchmarks are in the table above.</p></div>
 
 <div class="page">{{ header("Market Risk Analysis") }}
+  {{ trend_block("Risk Score Trend (4-Week Moving Avg)", c.risk_trend, [], "Risk is re-ranked weekly against the S&P 500 sector cohort using prices up to each date (lower risk = higher score).") }}
+  {% if c.gauge_risk %}<h2>Risk Indicators</h2>{{ c.gauge_risk|safe }}{% endif %}
   <h2>Risk statistics</h2>
   <table><tr><th>Metric</th><th>{{ c.ticker }}</th></tr>{% for k, v in c.risk %}<tr><td>{{ k }}</td><td>{{ v }}</td></tr>{% endfor %}</table>
   <h2>Peer risk comparison</h2>
@@ -75,6 +80,8 @@
   <p class="note">Beta/correlation vs S&amp;P 500 (1Y daily).</p></div>
 
 <div class="page">{{ header("Price Momentum & Technicals") }}
+  {{ trend_block("Price Momentum Score Trend (4-Week Moving Avg)", c.mom_trend, [], "Relative-strength score re-ranked weekly against the S&P 500 sector cohort; seasonality is not included in the score.") }}
+  {% if c.gauge_momentum %}<h2>Price Momentum Indicators</h2>{{ c.gauge_momentum|safe }}{% endif %}
   <div class="row"><div class="col"><h2>Relative Strength</h2>
     <table><tr><th>Indicator</th><th>Value</th></tr>{% for k, v in c.momentum %}<tr><td>{{ k }}</td><td>{{ v }}</td></tr>{% endfor %}</table></div>
   <div class="col"><h2>Performance vs DJIA</h2>{{ c.perf_chart|safe }}</div></div>
@@ -84,6 +91,7 @@
   <tr><td>% positive</td>{% for v in c.season_pos %}<td>{{ v }}</td>{% endfor %}</tr></table></div>
 
 <div class="page">{{ header("Insider Trading & Major Holders") }}
+  {% if c.gauge_insider %}<h2>Insider Trading Indicators</h2>{{ c.gauge_insider|safe }}{% endif %}
   <div class="row"><div class="col"><h2>Insider Trading Score</h2><span class="badge">{{ c.ins_score }}</span>
   <p class="note">Short-term (90d) 70% / long-term (12m) 30%, from open-market buys and sells ($ value). NR = no open-market activity.</p>
   <h2>6-Month Summary (shares)</h2><table><tr><th>Acquired</th><th>Disposed</th><th>Net</th></tr><tr><td>{{ "{:,}".format(c.ins_sum.acquired) }}</td><td>{{ "{:,}".format(c.ins_sum.disposed) }}</td><td>{{ "{:,}".format(c.ins_sum.net) }}</td></tr></table></div>

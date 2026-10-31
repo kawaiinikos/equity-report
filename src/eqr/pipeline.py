@@ -99,7 +99,9 @@ def run_full(ticker: str, out_dir: Path = ROOT / "output", progress=lambda msg: 
     extra = phase2(d, ratios, close, p3['scores']) | p3['ctx']
     avg, _ = scoring.average_and_optimized(extra["scores"])
     progress("Score history")
-    extra |= trend.build(d, extra.pop("_internal"), extra["scores"])
+    tf = {k: (None if v == "NR" else float(v)) for k, v in (extra.get("earn_factors") or [])}
+    names = {v: k for k, v in phase3.LABELS.items()}
+    extra |= trend.build(d, extra.pop("_internal"), extra["scores"], {names[k]: v for k, v in tf.items() if v is not None})
     facts = build_facts(d, extra["scores"], avg, scoring.outlook(avg), risk, mom, p3["raw"])
     progress("Writing highlights")
     extra["highlights"], extra["highlights_source"] = highlights(facts)

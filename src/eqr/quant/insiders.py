@@ -50,3 +50,11 @@ def insider_score(om: pd.DataFrame, today: pd.Timestamp) -> float | None:
     parts = [(0.7, st), (0.3, lt)]
     parts = [(w, v) for w, v in parts if v is not None]
     return None if not parts else float(np.clip(round(sum(w * v for w, v in parts) / sum(w for w, _ in parts)), 1, 10))
+
+
+def insider_legs(om: pd.DataFrame, today: pd.Timestamp) -> tuple[float | None, float | None]:
+    """(short-term 90d score, long-term 12m score) for the gauges."""
+    def leg(days):
+        w = om[om["date"] >= today - pd.Timedelta(days=days)]
+        return _net_score(w.loc[w["side"] == "Buy", "value"].sum(), w.loc[w["side"] == "Sell", "value"].sum())
+    return leg(90), leg(365)
