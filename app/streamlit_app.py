@@ -15,6 +15,11 @@ except Exception:
     pass
 
 st.set_page_config(page_title="Equity Research Report Generator", layout="wide")
+st.markdown("""<style>
+[data-testid="stMetricValue"] { font-size: 1.35rem; }
+[data-testid="stMetricValue"] > div { overflow: visible; text-overflow: clip; white-space: nowrap; }
+[data-testid="stMetricLabel"] { font-size: 0.75rem; }
+</style>""", unsafe_allow_html=True)
 st.title("Equity Research Report Generator")
 st.caption("LSEG Stock Reports Plus-style detailed report · AIFA, Goethe University Frankfurt · academic demo")
 
