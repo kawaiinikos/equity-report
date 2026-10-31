@@ -1,4 +1,4 @@
-"""ticker -> PDF. Phase 1 renders pages 1, 5, 8, 9 (page numbering follows the LSEG layout in later phases)."""
+"""ticker -> PDF (11 pages)."""
 import sys
 from pathlib import Path
 
@@ -54,8 +54,7 @@ def phase2(d, ratios, close, extra_scores=None) -> dict:
         "_internal": {"uni": uni, "target": target, "peers": peers},
         "charts": {"score_chart": score_bars(scores), "hist_ps": chart("price_to_sales", "Price to Sales"),
                    "hist_pe": chart("trailing_pe", "Trailing P/E (annual-EPS proxy)"),
-                   "hist_fpe": multiple_history(pd.Series(dtype=float), "Forward P/E (current vs benchmarks)", None,
-                                                bench["forward_pe"]["sp500"], bench["forward_pe"]["industry"], None)},
+                   },
     }
 
 
@@ -64,10 +63,10 @@ def method_context() -> dict:
             "weights": {"Fundamental pillars": "25% each (renormalised if a pillar is missing; dividend pillar dropped for non-payers)",
                         "Relative Valuation": "Price/Sales, trailing P/E, forward P/E: 33.3% each",
                         "Risk": "Magnitude of returns, volatility, beta, correlation: 25% each",
-                        "Price Momentum": "Relative strength 50%, seasonality 50% (seasonality pending in this build)",
+                        "Price Momentum": "Relative strength 50%, seasonality 50% (this build scores relative strength only)",
                         "Earnings": "Surprises, estimate revisions, recommendation changes: equal weight",
                         "Insider Trading": "Short-term 70%, long-term 30%"},
-            "bands": spec.SCORE_BANDS, "surprise_pct": spec.SURPRISE_THRESHOLD * 100,
+            "bands": spec.SCORE_BANDS, "surprise_pct": spec.SURPRISE_THRESHOLD * 100, "surprise_outlier": int(spec.SURPRISE_OUTLIER * 100),
             "roles": [("CEO", "Chief Executive Officer"), ("CFO", "Chief Financial Officer"), ("COO", "Chief Operating Officer"),
                       ("CB", "Chairman of the Board"), ("VC", "Vice Chairman"), ("P", "President"), ("D", "Director"),
                       ("DO", "Director / Beneficial Owner"), ("GC", "General Counsel"), ("EVP", "Executive Vice President"),

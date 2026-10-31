@@ -18,12 +18,16 @@ def surprise_table(ed: pd.DataFrame | None) -> pd.DataFrame:
     r.index = pd.to_datetime(r.index).tz_localize(None)
     r = r.sort_index(ascending=False)
     r["Surprise"] = (r["Reported EPS"] - r["EPS Estimate"]) / r["EPS Estimate"].abs()
-    r["Category"] = np.where(r["Surprise"] > spec.SURPRISE_THRESHOLD, "Positive",
-                             np.where(r["Surprise"] < -spec.SURPRISE_THRESHOLD, "Negative", "In-line"))
+    r["Category"] = np.where(r["Surprise"].abs() > spec.SURPRISE_OUTLIER, "Not comparable",
+                    np.where(r["Surprise"] > spec.SURPRISE_THRESHOLD, "Positive",
+                             np.where(r["Surprise"] < -spec.SURPRISE_THRESHOLD, "Negative", "In-line")))
     return r.iloc[:12]
 
 
 def surprise_summary(tbl: pd.DataFrame) -> dict:
+    if tbl.empty:
+        return {}
+    tbl = tbl[tbl["Category"] != "Not comparable"]
     if tbl.empty:
         return {}
     last4 = tbl.iloc[:4]

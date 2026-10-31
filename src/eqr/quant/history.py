@@ -80,6 +80,7 @@ def earnings_history(ed: pd.DataFrame | None, ud: pd.DataFrame | None, dates: pd
         full = ed.dropna(subset=["Reported EPS"]).copy()
         full.index = pd.to_datetime(full.index).tz_localize(None)
         s = ((full["Reported EPS"] - full["EPS Estimate"]) / full["EPS Estimate"].abs()).sort_index()
+        s = s[s.abs() <= spec.SURPRISE_OUTLIER]  # GAAP-vs-adjusted mismatches are not real surprises
     else:
         s = pd.Series(dtype=float)
     acts = None

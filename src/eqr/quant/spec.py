@@ -7,6 +7,7 @@ COMPONENTS = ["earnings", "fundamental", "relative_valuation", "risk", "price_mo
 
 # Surprise: |actual - mean| / |mean| > 2% => positive/negative, else in-line
 SURPRISE_THRESHOLD = 0.02
+SURPRISE_OUTLIER = 1.0  # |surprise| above this is treated as GAAP-vs-adjusted mismatch, not a real beat/miss
 
 FUNDAMENTAL_PILLARS = {
     "profitability": {

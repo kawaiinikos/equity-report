@@ -20,7 +20,7 @@
 <div class="page">{{ header("Indicator Components & Peer Analysis") }}
   <div class="row"><div class="col"><h2>Component Ratings (1–10)</h2>{{ c.score_chart|safe }}</div>
   <div class="col"><h2>Optimized Score</h2><span class="badge">{{ c.opt_score }}</span>
-  <p class="note">Approximation: fixed-weight blend of available components. LSEG/Verus weights are proprietary. Earnings and Insider ratings arrive in Phase 3; Momentum uses relative strength only.</p></div></div>
+  <p class="note">Approximation: fixed-weight blend of available components. LSEG/Verus weights are proprietary. The Momentum score uses relative strength only (seasonality is shown on the momentum page but not scored).</p></div></div>
   <h2>Peer Analysis</h2>
   <table><tr>{% for h in ["Ticker","Price","1M","3M","Mkt Cap (B)","P/E","Fwd P/E","Div Yld","Net Margin"] %}<th>{{ h }}</th>{% endfor %}</tr>
   {% for r in c.peer_rows %}<tr {% if loop.first %}style="font-weight:700"{% endif %}>{% for v in r %}<td>{{ v }}</td>{% endfor %}</tr>{% endfor %}</table>
@@ -47,10 +47,11 @@
   <div class="row"><div class="col"><h2>Analyst recommendations</h2>{{ c.rec_chart|safe }}</div>
   <div class="col"><h2>Revenue (USD bn)</h2><table><tr><th>Period</th><th>Revenue</th></tr>{% for r in c.rev_rows %}<tr>{% for v in r %}<td>{{ v }}</td>{% endfor %}</tr>{% endfor %}</table></div></div>
   <h2>Surprise detail (last 6 quarters)</h2>
-  <table><tr><th>Report date</th><th>Actual EPS</th><th>Mean EPS</th><th>Surprise</th><th>Category</th></tr>{% for r in c.surprise_rows %}<tr>{% for v in r %}<td>{{ v }}</td>{% endfor %}</tr>{% endfor %}</table></div>
+  <table><tr><th>Report date</th><th>Actual EPS</th><th>Mean EPS</th><th>Surprise</th><th>Category</th></tr>{% for r in c.surprise_rows %}<tr>{% for v in r %}<td>{{ v }}</td>{% endfor %}</tr>{% endfor %}</table>
+  <p class="note">"Not comparable" = surprise above ±{{ c.method.surprise_outlier }}%: Yahoo often pairs a GAAP reported EPS (including investment gains) with an adjusted consensus estimate, so these quarters are excluded from the counts and the Earnings score.</p></div>
 
 <div class="page">{{ header("Fundamental Analysis") }}
-  <p class="pill">Four pillars, 25% weight each. Values below; decile scores are added in Phase 2.</p>
+  <p class="pill">Four pillars, 25% weight each (renormalised if a pillar is unavailable). The Fundamental score is a decile rank of the average pillar score within the sector.</p>
   {% for pillar, rows in c.fundamental.items() %}<h2>{{ pillar }}</h2>
   <table><tr><th>Ratio</th><th>Formula</th><th>Value</th></tr>
   {% for name, formula, val in rows %}<tr><td>{{ name }}</td><td style="text-align:left;font-size:7pt;color:#5b6b7d">{{ formula }}</td><td>{{ val }}</td></tr>{% endfor %}</table>{% endfor %}</div>
@@ -63,7 +64,7 @@
   5Y averages are proxies from annual statements (~4 fiscal years available); forward P/E and PEG history need a paid data source.</p>
   <h2>Historical multiples</h2>
   <div class="row"><div class="col">{{ c.hist_ps|safe }}</div><div class="col">{{ c.hist_pe|safe }}</div></div>
-  <div class="row"><div class="col">{{ c.hist_fpe|safe }}</div><div class="col"><p class="note">Forward PEG: current {{ c.peg }}; no history available from yfinance.</p></div></div></div>
+  <p class="note">Forward P/E and Forward PEG (current {{ c.peg }}) have no price-history series because point-in-time consensus estimates are not available from Yahoo Finance; the current values and benchmarks are in the table above.</p></div>
 
 <div class="page">{{ header("Market Risk Analysis") }}
   <h2>Risk statistics</h2>
@@ -71,7 +72,7 @@
   <h2>Peer risk comparison</h2>
   <table><tr><th>Ticker</th><th>Volatility</th><th>Beta</th><th>Correlation</th><th>90d range</th></tr>
   {% for r in c.peer_risk %}<tr {% if loop.first %}style="font-weight:700"{% endif %}>{% for v in r %}<td>{{ v }}</td>{% endfor %}</tr>{% endfor %}</table>
-  <p class="note">Beta/correlation vs S&amp;P 500 (1Y daily). Industry-group beta arrives with the industry return series in a later phase.</p></div>
+  <p class="note">Beta/correlation vs S&amp;P 500 (1Y daily).</p></div>
 
 <div class="page">{{ header("Price Momentum & Technicals") }}
   <div class="row"><div class="col"><h2>Relative Strength</h2>
@@ -91,7 +92,7 @@
   <table><tr><th>Date</th><th>Insider</th><th>Role</th><th>Side</th><th>Shares</th><th>Value</th></tr>{% for r in c.ins_recent %}<tr>{% for v in r %}<td>{{ v }}</td>{% endfor %}</tr>{% endfor %}</table>
   <h2>Top institutional holders</h2>
   <table><tr><th>Holder</th><th>% Out</th><th>Shares</th><th>Reported</th></tr>{% for r in c.inst_rows %}<tr>{% for v in r %}<td>{{ v }}</td>{% endfor %}</tr>{% endfor %}</table>
-  <h2>Top executive holders (direct)</h2>
+  <h2>Top executive holders (direct)</h2><p class="note">Shares held directly as reported by Yahoo Finance; holdings through trusts or other entities are not included and can be far larger.</p>
   <table><tr><th>Name</th><th>Role</th><th>Direct shares</th><th>Value</th><th>Reported</th></tr>{% for r in c.exec_rows %}<tr>{% for v in r %}<td>{{ v }}</td>{% endfor %}</tr>{% endfor %}</table></div>
 
 <div class="page">{{ header("Methodology (1/2)") }}
