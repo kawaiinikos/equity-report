@@ -1,6 +1,13 @@
 <!doctype html><html><head><meta charset="utf-8"><style>{{ css }}</style></head><body>
 {% macro header(title) %}<div class="hdr"><h1>{{ c.name }} ({{ c.ticker }})</h1><div class="sub">{{ c.sector }} · {{ title }} · Report Date: {{ c.date }}</div></div>{% endmacro %}
 
+{% macro trend_block(title, rows, box, note) %}{% if rows %}
+  <div class="row"><div class="col" style="flex:2.2"><h2>{{ title }}</h2>
+  <table class="trend"><tr><th>Peers</th><th>-6M</th><th>-3M</th><th>-1M</th><th>-1W</th><th>Current</th><th>1Y Trend</th></tr>
+  {% for r in rows %}<tr {% if r.target %}style="font-weight:700"{% endif %}><td>{{ r.ticker }}</td>{% for v in r.vals[:4] %}<td>{{ v }}</td>{% endfor %}<td><span class="cur">{{ r.vals[4] }}</span></td><td class="spark">{{ r.spark|safe }}</td></tr>{% endfor %}</table></div>
+  <div class="col"><h2>Score Averages</h2><table>{% for k, v in box %}<tr><td>{{ k }}</td><td><b>{{ v }}</b></td></tr>{% endfor %}</table></div></div>
+  <p class="note">{{ note }}</p>{% endif %}{% endmacro %}
+
 <div class="page">{{ header("DETAILED STOCK REPORT – Overview") }}
   <div class="stats">{% for k, v in c.key_stats %}<div class="stat"><b>{{ v }}</b><span>{{ k }}</span></div>{% endfor %}</div>
   <div class="row"><div class="col"><h2>1-Year Price &amp; Volume</h2>{{ c.chart_1y|safe }}</div>
@@ -17,7 +24,8 @@
   <h2>Peer Analysis</h2>
   <table><tr>{% for h in ["Ticker","Price","1M","3M","Mkt Cap (B)","P/E","Fwd P/E","Div Yld","Net Margin"] %}<th>{{ h }}</th>{% endfor %}</tr>
   {% for r in c.peer_rows %}<tr {% if loop.first %}style="font-weight:700"{% endif %}>{% for v in r %}<td>{{ v }}</td>{% endfor %}</tr>{% endfor %}</table>
-  <p class="note">Peers: nearest market cap in the same GICS sub-industry (then sector) within the S&amp;P 500 universe.</p></div>
+  <p class="note">Peers: nearest market cap in the same GICS sub-industry (then sector) within the S&amp;P 500 universe.</p>
+  {{ trend_block("Average Score Trend (4-Week Moving Avg)", c.avg_trend, c.avg_box, "Approximation of LSEG's stored history: Risk and Price Momentum are re-ranked weekly against the S&P 500 sector cohort using prices up to each date; Earnings is rebuilt as-of each date from reported surprises and broker up/downgrades (revisions have no history); Fundamental, Valuation and Insider are held at their latest value. The Current column is the 4-week average, so it can differ from the headline score. Sector and index averages cover the four rankable components only.") }}</div>
 
 <div class="page">{{ header("Earnings Analysis & Price Target") }}
   <div class="row"><div class="col"><h2>Earnings Score</h2><span class="badge">{{ c.earn_score }}</span>
@@ -29,7 +37,8 @@
   {% if c.surp_summary %}<p>Positive {{ c.surp_summary.pos }} · Negative {{ c.surp_summary.neg }} · In-line {{ c.surp_summary.inline }} of {{ c.surp_summary.n }}. Last 4Q: {{ c.surp_summary.pos4 }} positive, {{ c.surp_summary.neg4 }} negative.</p>{% endif %}
   <h2>Estimate revisions (4 weeks) &amp; recommendation changes (120 days)</h2>
   <p>EPS estimates revised up {{ c.rev_stats.get("up30","n/a") }} / down {{ c.rev_stats.get("down30","n/a") }} (count over current/next quarter and year).
-  Upgrades {{ c.rc_stats.get("up","n/a") }} / downgrades {{ c.rc_stats.get("down","n/a") }}.</p></div>
+  Upgrades {{ c.rc_stats.get("up","n/a") }} / downgrades {{ c.rc_stats.get("down","n/a") }}.</p>
+  {{ trend_block("Earnings Score Trend (4-Week Moving Avg)", c.earn_trend, c.earn_box, "Earnings history uses two of the three factors (surprises and recommendation changes) because estimate revisions are not available historically (so Current can differ from the 3-factor Earnings Score above); market-wide Earnings averages need I/B/E/S coverage and are shown as n/a.") }}</div>
 
 <div class="page">{{ header("EPS Estimates, Revisions & Surprises") }}
   <div class="row"><div class="col">{{ c.eps_q_chart|safe }}</div><div class="col">{{ c.eps_a_chart|safe }}</div></div>

@@ -5,7 +5,7 @@ from pathlib import Path
 import pandas as pd
 
 from .charts.price import multiple_history, perf_bars, price_volume, score_bars
-from . import phase3
+from . import phase3, trend
 from .nlg.facts import build_facts
 from .nlg.generate import highlights
 from .quant import spec
@@ -51,6 +51,7 @@ def phase2(d, ratios, close, extra_scores=None) -> dict:
         "n_components": sum(1 for k in scoring.spec.COMPONENTS if scores.get(k) is not None),
         "peer_rows": prow, "peer_risk": rrow, "val_rows": val_rows, "peg": num(cur["forward_peg"]),
         "val_score": f(scores.get("relative_valuation")), "scores": scores,
+        "_internal": {"uni": uni, "target": target, "peers": peers},
         "charts": {"score_chart": score_bars(scores), "hist_ps": chart("price_to_sales", "Price to Sales"),
                    "hist_pe": chart("trailing_pe", "Trailing P/E (annual-EPS proxy)"),
                    "hist_fpe": multiple_history(pd.Series(dtype=float), "Forward P/E (current vs benchmarks)", None,
@@ -98,6 +99,8 @@ def run_full(ticker: str, out_dir: Path = ROOT / "output", progress=lambda msg: 
     p3 = phase3.build(d, float(close.iloc[-1]))
     extra = phase2(d, ratios, close, p3['scores']) | p3['ctx']
     avg, _ = scoring.average_and_optimized(extra["scores"])
+    progress("Score history")
+    extra |= trend.build(d, extra.pop("_internal"), extra["scores"])
     facts = build_facts(d, extra["scores"], avg, scoring.outlook(avg), risk, mom, p3["raw"])
     progress("Writing highlights")
     extra["highlights"], extra["highlights_source"] = highlights(facts)

@@ -96,3 +96,24 @@ def insider_bars(monthly):
     ax.set_xticks(x, [str(p)[2:] for p in monthly.index], fontsize=6, rotation=45)
     ax.set_ylabel("$ millions"); ax.legend(frameon=False, fontsize=7)
     return to_svg(fig)
+
+
+def sparkline(values, w=1.5, h=0.26):
+    """Tiny white-on-navy area line (no axes) for the 1Y score-trend column."""
+    from .style import NAVY
+    v = [x for x in values if x == x]
+    fig, ax = plt.subplots(figsize=(w, h))
+    fig.patch.set_facecolor(NAVY)
+    ax.set_facecolor(NAVY)
+    if v:
+        ax.fill_between(range(len(v)), 1, v, color="#3b5f86", alpha=.9)
+        ax.plot(v, color="white", lw=1)
+    ax.set_ylim(1, 10)
+    ax.axis("off")
+    fig.subplots_adjust(0, 0, 1, 1)
+    import io
+    buf = io.StringIO()
+    fig.savefig(buf, format="svg", facecolor=NAVY)
+    plt.close(fig)
+    s = buf.getvalue()
+    return s[s.index("<svg"):]

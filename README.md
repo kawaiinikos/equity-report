@@ -2,12 +2,14 @@
 
 Ticker in, ~11-page PDF out. Data from Yahoo Finance (yfinance); scores re-implemented from the LSEG methodology (approximations noted in the report).
 
-## Quick start (macOS, no terminal skills needed)
-1. Unzip the folder. Do NOT use any `.venv` from someone else's machine (it is rebuilt automatically).
-2. Right-click `Start Report App.command` -> Open -> Open (first time only, macOS security).
-   If macOS still refuses, open Terminal once and run: `xattr -dr com.apple.quarantine <unzipped folder>` then `chmod +x "<folder>/Start Report App.command"`.
-3. First run installs Python/pango/dependencies (needs internet + Homebrew, ~5 min). Later runs start in seconds and the browser opens automatically.
-Keep the Terminal window open while using the app; close it to stop.
+## Quick start (macOS / Windows / Linux)
+```
+python start.py
+```
+(on Windows: `py start.py`, or double-click `start.py`). The first run creates `.venv`, installs the requirements
+and opens the app in the browser; later runs start in seconds. If something is missing (Python 3.11+, the Pango
+library for the PDF engine, internet) the launcher stops and prints exactly what to install.
+Extras: `python start.py --check` verifies the setup only, `python start.py --reinstall` rebuilds `.venv`.
 
 ## Setup (once, manual)
 ```bash

@@ -14,3 +14,6 @@ tr:nth-child(even) td { background: #f6f9fc; }
 .pill { font-size: 7pt; color: #5b6b7d; } .note { font-size: 7pt; color: #8a97a6; margin-top: 6px; }
 .pos { color: #2e9d5b; } .neg { color: #c8393b; }
 svg { max-width: 100%; height: auto; }
+
+table.trend td.spark { padding: 0; width: 95px; background: #0b2a4a !important; } table.trend td.spark svg { display: block; width: 95px; height: 16px; }
+.cur { background: #0b2a4a; color: #fff; padding: 1px 8px; border-radius: 2px; font-weight: 700; }
