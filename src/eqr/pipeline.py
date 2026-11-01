@@ -138,6 +138,7 @@ def run_full(ticker: str, out_dir: Path = ROOT / "output", progress=lambda msg: 
     avg, _ = scoring.average_and_optimized(extra["scores"])
     pm = extra["_internal"]["peers"]["trailing_pe"].astype(float)
     extra["notes"] = anomalies.detect(d, ratios, risk, float(pm[pm > 0].median()) if (pm > 0).any() else None)
+    extra["notes"]["earnings"] += extra.pop("restated_notes", [])
     progress("Score history")
     tf = {k: (None if v == "NR" else float(v)) for k, v in (extra.get("earn_factors") or [])}
     names = {v: k for k, v in phase3.LABELS.items()}

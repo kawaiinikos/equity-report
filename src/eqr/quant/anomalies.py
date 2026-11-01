@@ -33,6 +33,32 @@ def _bn(x):
     return f"${x / 1e9:,.1f}bn" if abs(x) >= 1e9 else f"${x / 1e6:,.0f}m"
 
 
+REBASE = 0.6  # actual and consensus both fall below 60% (or rise above 1/0.6) of the previous quarter's level
+
+
+def restated_quarters(earnings_dates: pd.DataFrame | None) -> list[str]:
+    """Quarters where reported EPS and consensus jump to a new level together: the data provider has most likely restated
+    the quarter on a new company perimeter (spin-off, merger), so its surprise can differ from a point-in-time source."""
+    if earnings_dates is None or not len(earnings_dates):
+        return []
+    e = earnings_dates.dropna(subset=["Reported EPS", "EPS Estimate"]).sort_index()
+    act, est = e["Reported EPS"].astype(float), e["EPS Estimate"].astype(float)
+    out = []
+    for i in range(1, len(e)):
+        a0, a1, m0, m1 = act.iloc[i - 1], act.iloc[i], est.iloc[i - 1], est.iloc[i]
+        if min(a0, a1, m0, m1) <= 0:
+            continue
+        ra, rm = a1 / a0, m1 / m0
+        if (ra < REBASE and rm < REBASE) or (ra > 1 / REBASE and rm > 1 / REBASE):
+            s = (a1 / m1 - 1) * 100
+            out.append(f"The quarter reported on {pd.Timestamp(e.index[i]).strftime('%Y-%m-%d')} shows EPS of {a1:.2f} against a "
+                       f"consensus of {m1:.2f} ({s:+.1f}%), while the quarter before was {a0:.2f} against {m0:.2f}. Both figures moved "
+                       f"to a new level together, which suggests Yahoo Finance restated this quarter on the company's new perimeter "
+                       f"(e.g. after a spin-off). Point-in-time sources such as LSEG I/B/E/S keep the figures as originally reported, "
+                       f"so their surprise for this quarter can differ, even in sign.")
+    return out[-2:]
+
+
 def detect(d: dict, ratios: dict, risk: dict, peer_median_pe: float | None = None) -> dict[str, list[str]]:
     st, info = d["statements"], d["info"]
     q, qb = st["q_income"], st["q_balance"]

@@ -46,3 +46,11 @@ def test_event_scores():
     assert f["recommendation_changes"] == 10 and score >= 8
     s, st_, lt = EV.insider_at(ev, pd.Timestamp("2026-10-15"))
     assert st_ == 2 and s == 2
+
+
+def test_restated_quarter_flagged():
+    ed = pd.DataFrame({"EPS Estimate": [5.07, 4.64, 1.82], "Reported EPS": [5.18, 4.90, 1.95]},
+                      index=pd.to_datetime(["2026-01-29", "2026-04-23", "2026-07-23"]))
+    notes = anomalies.restated_quarters(ed)
+    assert len(notes) == 1 and "2026-07-23" in notes[0]
+    assert not anomalies.restated_quarters(ed.iloc[:2])

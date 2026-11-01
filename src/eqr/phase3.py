@@ -7,6 +7,7 @@ from .collectors import sec
 from .quant import events as EV
 from .charts.price import eps_chart, fan_chart, insider_bars, rec_bars
 from .collectors.yf import collect_estimates
+from .quant import anomalies
 from .quant import earnings as E
 from .quant import insiders as I
 from .render.build import num, pct
@@ -122,7 +123,7 @@ def build(d: dict, price: float) -> dict:
     return {
         "raw": raw, "events": EV.from_sources(d["ticker"], x["earnings_dates"], x["up_down"], om), "scores": {"earnings": es["score"], "insider_trading": ins_score},
         "ctx": {
-            "earn_score": f(es["score"]), "earn_factors": [[LABELS[k], f(v)] for k, v in es["factors"].items()],
+            "restated_notes": anomalies.restated_quarters(x["earnings_dates"]), "earn_score": f(es["score"]), "earn_factors": [[LABELS[k], f(v)] for k, v in es["factors"].items()],
             "surp_summary": summ, "rev_stats": rev, "rc_stats": rc, "pt": pt,
             "pt_vs_current": pct(pt["mean"] / price - 1) if pt.get("mean") else "n/a", "n_analysts": n_an, "fan_chart": fan,
             "eps_q_chart": eps_chart(q_labels, q_act, q_est, q_lo, q_hi, "Quarterly EPS"),
