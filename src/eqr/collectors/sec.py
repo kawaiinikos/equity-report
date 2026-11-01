@@ -3,6 +3,7 @@
 Fair-access rules: <=10 requests/s and a User-Agent naming the requester. Set SEC_USER_AGENT in .env to
 "Your Name your@email"; without it SEC data is skipped."""
 import os
+import re
 import time
 import xml.etree.ElementTree as ET
 
@@ -178,6 +179,73 @@ def _quarters(df: pd.DataFrame) -> pd.Series:
         if fy["end"] not in q.index and len(inside) == 3:
             q.loc[fy["end"]] = float(fy["val"]) - inside.sum()
     return q.sort_index()
+
+
+REVENUE_TAGS = {"Revenues", "RevenueFromContractWithCustomerExcludingAssessedTax", "RevenueFromContractWithCustomerIncludingAssessedTax",
+                "SalesRevenueNet", "SalesRevenueGoodsNet", "RevenuesNetOfInterestExpense"}
+BUSINESS_AXES = {"StatementBusinessSegmentsAxis", "ProductOrServiceAxis"}
+NEUTRAL_AXES = {"ConsolidationItemsAxis"}  # allowed alongside a business axis when the member is OperatingSegmentsMember
+GENERIC_MEMBERS = {"ProductMember", "ServiceMember", "ProductAndServiceOtherMember", "OperatingSegmentsMember", "SegmentReconcilingItemsMember",
+                   "CorporateNonSegmentMember", "IntersegmentEliminationMember", "AllOtherSegmentsMember", "OtherSegmentsMember"}
+GEO = ("northamerica", "international", "unitedstates", "europe", "asia", "americas", "emea", "apac", "domestic", "foreign",
+       "china", "japan", "restofworld", "latinamerica", "canada", "pacific", "middleeast")
+
+
+def _business_lines(xml: str, cutoff: pd.Timestamp) -> tuple[str | None, dict]:
+    """Revenue per business line (segment and product-line members) for the latest fiscal year in a 10-K XBRL instance."""
+    root = ET.fromstring(xml)
+    ctx = {}
+    for cx in root:
+        if not cx.tag.endswith("}context"):
+            continue
+        mem = tuple((m.get("dimension").split(":")[-1], m.text.split(":")[-1]) for m in cx.iter() if m.tag.endswith("explicitMember"))
+        sd = [e.text for e in cx.iter() if e.tag.endswith("startDate")]
+        ed = [e.text for e in cx.iter() if e.tag.endswith("endDate")]
+        if sd and ed and 330 <= (pd.Timestamp(ed[0]) - pd.Timestamp(sd[0])).days <= 400 and pd.Timestamp(ed[0]) < cutoff:
+            ctx[cx.get("id")] = (ed[0], mem)
+    lines: dict[str, dict] = {}
+    for f in root:
+        if f.tag.split("}")[-1] not in REVENUE_TAGS or f.get("contextRef") not in ctx or not (f.text or "").strip():
+            continue
+        end, mem = ctx[f.get("contextRef")]
+        axes = {a for a, _ in mem}
+        if not mem or not axes & BUSINESS_AXES or axes - BUSINESS_AXES - NEUTRAL_AXES:
+            continue
+        if any(a in NEUTRAL_AXES and m != "OperatingSegmentsMember" for a, m in mem):
+            continue
+        for a, m in mem:  # credit every specific business member on the fact; keep the largest value seen per member
+            if a in BUSINESS_AXES and m not in GENERIC_MEMBERS and not any(g in m.lower() for g in GEO):
+                d = lines.setdefault(end, {})
+                d[m] = max(d.get(m, 0.0), float(f.text))
+    if not lines:
+        return None, {}
+    end = max(lines)
+    label = lambda m: re.sub(r"(?<=[a-z0-9])(?=[A-Z])", " ", re.sub(r"(Segment)?Member$", "", m)).strip()
+    return end, {label(m): v for m, v in lines[end].items() if v > 0}
+
+
+def business_profile(ticker: str, cutoff: pd.Timestamp | None = None) -> dict:
+    """SIC industry code and revenue by business line from the latest 10-K filed before `cutoff` (cached 30 days)."""
+    c = cik(ticker)
+    if c is None:
+        return {}
+    cutoff = cutoff or pd.Timestamp.today()
+
+    def load():
+        s = _get(f"https://data.sec.gov/submissions/CIK{c}.json")
+        out = {"sic": s.get("sic"), "sic_desc": s.get("sicDescription"), "fy_end": None, "lines": {}}
+        r = s["filings"]["recent"]
+        k = [i for i, f in enumerate(r["form"]) if f in ("10-K", "20-F", "40-F") and pd.Timestamp(r["filingDate"][i]) < cutoff]
+        if not k:
+            return out
+        base = f"https://www.sec.gov/Archives/edgar/data/{int(c)}/{r['accessionNumber'][k[0]].replace('-', '')}/"
+        inst = [x["name"] for x in _get(base + "index.json")["directory"]["item"] if x["name"].endswith("_htm.xml")]
+        if inst:
+            out["fy_end"], out["lines"] = _business_lines(_get(base + inst[0], as_json=False), cutoff)
+        out["filing"] = base
+        return out
+
+    return cached(f"{ticker}_sec_profile_{cutoff:%Y%m%d}", load, ttl_hours=24 * 30)
 
 
 def ttm_fundamentals(ticker: str, as_of: pd.Timestamp | None = None) -> dict:

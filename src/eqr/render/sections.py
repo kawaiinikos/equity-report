@@ -65,7 +65,7 @@ def enrich(ctx: dict, d: dict, ratios: dict, risk: dict, mom: dict, raw: dict) -
     q_end = d["statements"]["q_income"].columns
     ctx.update(gics_sector=info.get("sector", ""), data_to=close.index[-1].strftime("%Y-%m-%d"), currency=info.get("currency", "USD"),
                stmt_lag=asof.REPORTING_LAG_DAYS, stmt_end=pd.Timestamp(max(q_end)).strftime("%Y-%m-%d") if len(q_end) else "n/a",
-               peer_names=[(r["ticker"], str(r.get("name") or "")) for r in ctx.get("peer_table_raw", [])[1:]])
+               peer_names=[(r["ticker"], str(r.get("name") or ""), ctx.get("peer_why", {}).get(r["ticker"], "")) for r in ctx.get("peer_table_raw", [])[1:]])
 
     # ---- page 1: key stats (two rows, LSEG order) ----
     divs = d["dividends"]

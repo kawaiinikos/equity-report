@@ -54,10 +54,10 @@
   <div class="bar"><span>PEER ANALYSIS</span><small>Currency in {{ c.currency }}</small></div>
   <table><tr><th>Avg Score</th><th class="l">Ticker</th><th>Price</th><th>1-Mo</th><th>3-Mo</th><th>1-Yr</th><th>Market Cap</th><th>Trailing PE</th><th>Forward PE</th><th>Div Yield</th><th>Net Margin</th></tr>
   {% for r in c.peer_rows2 %}<tr class="{{ 'tgt' if r.target }} {{ 'avg' if r.avg }}">{% for v in r.cells %}<td {% if loop.index == 2 %}class="l"{% endif %}>{{ v }}</td>{% endfor %}</tr>{% endfor %}</table>
-  <div class="note">Peers: nearest market capitalisation in the same GICS sub-industry, then sector (S&amp;P 500). LSEG uses its TRBC industry classification, so peer sets differ.</div>
-  <div class="bar sub"><span>PEER COMPANIES</span></div>
-  <div class="grid4">{% for t, n in c.peer_names %}<div><b>{{ t }}</b> {{ n }}</div>{% endfor %}</div>
-  {{ src("Yahoo Finance prices and key statistics; S&P 500 constituents and GICS classification from Wikipedia") }}</div>
+  <div class="note">{% if c.peer_method == 'similarity' %}Peers: the S&amp;P 500 companies most similar to {{ c.ticker }} on a blend of business description, 10-K revenue mix, return co-movement, financial profile, size and industry code (see methodology). LSEG picks peers with its own TRBC-based method, so peer sets differ.{% else %}Peers: nearest market capitalisation in the same GICS sub-industry, then sector (S&amp;P 500). LSEG uses its TRBC industry classification, so peer sets differ.{% endif %}</div>
+  <div class="bar sub"><span>PEER COMPANIES</span><small>closest match on</small></div>
+  <div class="grid4">{% for t, n, why in c.peer_names %}<div><b>{{ t }}</b> {{ n }}{% if why %}<br><span class="note">{{ why }}</span>{% endif %}</div>{% endfor %}</div>
+  {{ src("Yahoo Finance prices, key statistics and business descriptions; SEC EDGAR 10-K revenue by business line and SIC codes; S&P 500 constituents and GICS classification from Wikipedia") }}</div>
 
 {# ---------- page 3: earnings ---------- #}
 <div class="page">{{ masthead("DETAILED STOCK REPORT") }}
@@ -217,6 +217,7 @@
   <tr><td>Insider transactions</td><td class="l">{{ c.ins_cite }}</td></tr>
   <tr><td>Executive holdings</td><td class="l">{{ c.exec_cite }}</td></tr>
   <tr><td>Market-wide earnings / insider events</td><td class="l">Yahoo Finance, {{ c.market_events_n }} S&amp;P 500 companies (scripts/build_market_events.py)</td></tr>
+  <tr><td>Peer selection inputs</td><td class="l">Yahoo Finance business descriptions; SEC EDGAR 10-K XBRL revenue by segment and product line, SIC codes (scripts/build_peer_features.py)</td></tr>
   <tr><td>Universe and sectors</td><td class="l">S&amp;P 500 constituents and GICS classification (Wikipedia list), 10 years of daily prices</td></tr></table>
   {% if c.cmp_rows and c.cmp_head|length > 1 %}<h3>Source cross-check (same figures from different providers)</h3>
   <table><tr><th class="l">Item</th>{% for h in c.cmp_head %}<th>{{ h }}</th>{% endfor %}</tr>{% for r in c.cmp_rows %}<tr>{% for v in r %}<td>{{ v }}</td>{% endfor %}</tr>{% endfor %}</table>
@@ -225,7 +226,9 @@
   <h3>Approximations</h3><ul class="hl">
   <li>Scores re-implement the published LSEG Stock Reports Plus methodology on an S&amp;P 500 universe; they are not LSEG's proprietary values (LSEG ranks a global universe with I/B/E/S data).</li>
   <li>Earnings factor scores use fixed bins; the Optimized Score uses fixed weights (not the Verus Analytics blend).</li>
-  <li>Peers use GICS, not LSEG's TRBC industries.</li></ul>
+  <li>Peers are chosen by our similarity blend, not LSEG's TRBC-based peer method; sector averages use GICS, not TRBC.</li></ul>
+  {% if c.peer_method == 'similarity' %}<h3>Peer selection</h3><p>Every S&amp;P 500 company is scored on six signals, each converted to a percentile among all candidates and blended with the weights below (a signal that is missing for a company, e.g. no 10-K segment data for a non-US filer, is dropped and the other weights rescaled). Business description and revenue mix use TF-IDF text similarity; the revenue mix weights each 10-K business line by its share of revenue. Return co-movement is the correlation of two years of weekly returns after removing the average market move. Weights were checked against LSEG's published peer lists for HON and AMZN, which is too small a sample to call them calibrated.</p>
+  <div class="grid3">{% for n, w in c.peer_weights %}<div><b>{{ w }}</b> {{ n }}</div>{% endfor %}</div>{% endif %}
   <h3>Insider role codes</h3>
   <div class="grid4">{% for a, b in c.method.roles %}<div><b>{{ a }}</b> {{ b }}</div>{% endfor %}</div>
   <h3>Disclaimer</h3>

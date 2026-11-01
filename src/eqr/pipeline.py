@@ -9,7 +9,7 @@ from . import asof, phase3, sources, trend
 from .nlg.facts import build_facts
 from .nlg.generate import highlights
 from .quant import spec
-from .quant import anomalies, scoring, valuation
+from .quant import anomalies, scoring, similarity, valuation
 from .quant.peers import pick_peers
 from .universe import UNIVERSE_PATH, price_metrics
 from .collectors.yf import collect
@@ -44,7 +44,14 @@ def phase2(d, ratios, close, extra_scores=None) -> dict:
         pass
     scores = scoring.score_target(uni, target) | (extra_scores or {})
     avg, opt = scoring.average_and_optimized(scores)
-    peers = pick_peers(uni, d["ticker"], sector, industry, target["market_cap"])
+    profile = {}
+    try:  # SEC 10-K business lines + SIC code for the revenue-mix peer signal (US filers only)
+        from .collectors import sec
+        profile = sec.business_profile(d["ticker"], asof.as_of())
+    except Exception:
+        pass
+    peers = pick_peers(uni, d["ticker"], sector, industry, target["market_cap"], target=target, prices=trend.universe_prices(),
+                       summary=info.get("longBusinessSummary"), profile=profile, close=close)
     prow, rrow = peer_rows(target, peers)
 
     cur = valuation.current_multiples(info)
@@ -80,7 +87,7 @@ def phase2(d, ratios, close, extra_scores=None) -> dict:
     return {
         "avg_score": f(avg), "opt_score": f(opt), "outlook": scoring.outlook(avg),
         "n_components": sum(1 for k in scoring.spec.COMPONENTS if scores.get(k) is not None),
-        "peer_rows": prow, "peer_risk": rrow, "peer_table_raw": peer_table_raw, "val_cards": val_cards, "fpe_chart": fpe_chart, "fpe_cite": fpe_cite, "val_rows": val_rows, "peg": num(cur["forward_peg"]),
+        "peer_rows": prow, "peer_risk": rrow, "peer_table_raw": peer_table_raw, "peer_why": dict(zip(peers["ticker"], peers["why"])), "peer_method": "similarity" if "similarity" in peers else "size", "peer_weights": [(similarity.LABELS[k].capitalize(), f"{v:.0%}") for k, v in similarity.WEIGHTS.items()], "val_cards": val_cards, "fpe_chart": fpe_chart, "fpe_cite": fpe_cite, "val_rows": val_rows, "peg": num(cur["forward_peg"]),
         "val_score": f(scores.get("relative_valuation")), "scores": scores,
         "_internal": {"uni": uni, "target": target, "peers": peers},
         "charts": {"score_chart": score_bars(scores), "hist_ps": chart("price_to_sales", "Price to Sales"),
