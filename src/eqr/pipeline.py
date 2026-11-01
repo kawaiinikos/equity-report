@@ -50,8 +50,8 @@ def phase2(d, ratios, close, extra_scores=None) -> dict:
         profile = sec.business_profile(d["ticker"], asof.as_of())
     except Exception:
         pass
-    peers = pick_peers(uni, d["ticker"], sector, industry, target["market_cap"], target=target, prices=trend.universe_prices(),
-                       summary=info.get("longBusinessSummary"), profile=profile, close=close)
+    peers = pick_peers(uni, d["ticker"], sector, industry, target["market_cap"], target=target,
+                       summary=info.get("longBusinessSummary"), profile=profile)
     prow, rrow = peer_rows(target, peers)
 
     cur = valuation.current_multiples(info)

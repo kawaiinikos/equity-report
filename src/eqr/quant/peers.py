@@ -32,9 +32,9 @@ def by_size(universe: pd.DataFrame, ticker: str, sector: str, industry: str, mca
     return out
 
 
-def similarity_table(universe: pd.DataFrame, target: dict, prices: pd.DataFrame, summary: str | None = None,
-                     profile: dict | None = None, close: pd.Series | None = None) -> pd.DataFrame:
-    """Every candidate scored on the six similarity signals (see quant/similarity.py), best match first."""
+def similarity_table(universe: pd.DataFrame, target: dict, summary: str | None = None,
+                     profile: dict | None = None) -> pd.DataFrame:
+    """Every candidate scored on the five similarity signals (see quant/similarity.py), best match first."""
     tk = target["ticker"]
     feats = S.load_features(FEATURES)
     cand = _candidates(universe, tk)
@@ -49,14 +49,10 @@ def similarity_table(universe: pd.DataFrame, target: dict, prices: pd.DataFrame,
     lines = feats["lines"].to_dict()
     if profile and profile.get("lines"):
         lines[tk] = profile["lines"]
-    px = prices.copy()
-    if tk not in px and close is not None:
-        px[tk] = close.reindex(px.index).ffill()
     keep = list(frame.index)
     signals = {
         "business": S.business({k: v for k, v in summaries.items() if k in keep}, tk),
         "revenue_mix": S.revenue_mix({k: v for k, v in lines.items() if k in keep}, tk),
-        "returns": S.returns(px.loc[:, px.columns.isin(keep)], tk),
         "fundamentals": S.fundamentals(frame, tk),
         "size": S.size(frame["market_cap"].drop(index=tk), float(target["market_cap"])),
         "classification": S.classification(meta, tk),
@@ -68,13 +64,12 @@ def similarity_table(universe: pd.DataFrame, target: dict, prices: pd.DataFrame,
 
 
 def pick_peers(universe: pd.DataFrame, ticker: str, sector: str, industry: str, mcap: float, n: int = 10,
-               target: dict | None = None, prices: pd.DataFrame | None = None, summary: str | None = None,
-               profile: dict | None = None, close: pd.Series | None = None) -> pd.DataFrame:
+               target: dict | None = None, summary: str | None = None, profile: dict | None = None) -> pd.DataFrame:
     """Most similar companies by the blended similarity score; falls back to industry + size if the inputs are missing."""
-    if target is None or prices is None or not FEATURES.exists():
+    if target is None or not FEATURES.exists():
         return by_size(universe, ticker, sector, industry, mcap, n)
     try:
-        sim = similarity_table(universe, target, prices, summary, profile, close).head(n)
+        sim = similarity_table(universe, target, summary, profile).head(n)
     except Exception:
         traceback.print_exc()
         return by_size(universe, ticker, sector, industry, mcap, n)

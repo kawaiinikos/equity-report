@@ -9,7 +9,6 @@ from pathlib import Path
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).parents[1] / "src"))
-from eqr import trend
 from eqr.collectors import sec
 from eqr.config import ROOT
 from eqr.quant import peers as P
@@ -20,12 +19,11 @@ LSEG = {"HON": ["RTX", "ETN", "EMR", "MMM", "NOC", "GRMN", "ROK", "ZBRA", "MSA",
 N = 10
 
 uni = pd.read_parquet(ROOT / "data" / "universe.parquet")
-prices = trend.universe_prices()
 tables = {}
 for tk, ref in LSEG.items():
     row = uni[uni["ticker"] == tk].iloc[0].to_dict()
     old = P.by_size(uni, tk, row["sector"], row["industry"], row["market_cap"], N)
-    tab = P.similarity_table(uni, row, prices, profile=sec.business_profile(tk, pd.Timestamp("2026-10-15")))
+    tab = P.similarity_table(uni, row, profile=sec.business_profile(tk, pd.Timestamp("2026-10-15")))
     tables[tk] = tab
     reach = [t for t in ref if t in set(uni["ticker"])]
     hit = lambda picks: sorted(set(picks) & set(ref))

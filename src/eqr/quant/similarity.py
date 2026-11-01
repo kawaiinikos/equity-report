@@ -1,13 +1,12 @@
-"""Peer similarity: six signals, each turned into a 0-1 percentile across the candidate universe, then blended.
+"""Peer similarity: five signals, each turned into a 0-1 percentile across the candidate universe, then blended.
 
   business        TF-IDF cosine of the Yahoo business descriptions (what the company says it does)
   revenue_mix     TF-IDF cosine of 10-K business-line names, weighted by each line's revenue share (SEC XBRL)
-  returns         correlation of weekly returns over 2 years after removing the market-wide move
   fundamentals    closeness of margin, growth, leverage, working-capital, dividend and risk profiles
   size            market-cap closeness, 1 / (1 + |ln(cap ratio)|)
   classification  same GICS sub-industry / sector, or same SEC SIC code (4, 3 or 2 digits)
 
-A signal missing for a candidate (no 10-K segments, short price history) is left out of that candidate's blend and the
+A signal missing for a candidate (e.g. no 10-K segments for a non-US filer) is left out of that candidate's blend and the
 remaining weights are renormalised."""
 import json
 import math
@@ -17,11 +16,11 @@ from collections import Counter
 import numpy as np
 import pandas as pd
 
-# Chosen with scripts/evaluate_peers.py against LSEG's peer lists for HON and AMZN (4/8 and 3/5 recovered). Revenue mix is
-# kept small: 10-K segment names are short and often brand names, so word overlap alone is a noisy signal.
-WEIGHTS = {"business": 0.20, "revenue_mix": 0.10, "returns": 0.25, "fundamentals": 0.15, "size": 0.15, "classification": 0.15}
-LABELS = {"business": "business description", "revenue_mix": "revenue mix", "returns": "return co-movement",
-          "fundamentals": "financial profile", "size": "size", "classification": "industry code"}
+# Business description carries the most weight: peers should do the same things, not just trade alike. Revenue mix is kept
+# small: 10-K segment names are short and often brand names, so word overlap alone is a noisy signal.
+WEIGHTS = {"business": 0.45, "revenue_mix": 0.10, "fundamentals": 0.15, "size": 0.15, "classification": 0.15}
+LABELS = {"business": "business description", "revenue_mix": "revenue mix", "fundamentals": "financial profile",
+          "size": "size", "classification": "industry code"}
 FUND_COLS = ["revenue_growth", "gross_margin", "net_margin", "return_on_equity", "debt_to_capital", "current_ratio",
              "days_sales_inventory", "days_sales_receivables", "dividend_yield", "volatility", "beta"]
 STOP = set("""the and for with its our are from that this which other also inc corp company corporation companies co ltd plc llc
@@ -76,15 +75,6 @@ def revenue_mix(lines: dict[str, dict], target: str) -> pd.Series:
         if c:
             docs[k] = c
     return _cosine_to(target, _tfidf(docs, sublinear=False)) if target in docs else pd.Series(dtype=float)
-
-
-def returns(prices: pd.DataFrame, target: str, weeks: int = 104) -> pd.Series:
-    w = np.log(prices.resample("W-FRI").last()).diff().iloc[-weeks:]
-    w = w.loc[:, w.notna().sum() >= weeks * 0.8]
-    if target not in w:
-        return pd.Series(dtype=float)
-    resid = w.sub(w.drop(columns=[target]).mean(axis=1), axis=0)  # strip the common market move
-    return resid.drop(columns=[target]).corrwith(resid[target])
 
 
 def fundamentals(frame: pd.DataFrame, target: str) -> pd.Series:

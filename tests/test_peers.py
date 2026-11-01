@@ -21,16 +21,6 @@ def test_revenue_mix_weights_by_revenue_share():
     assert s["A"] > s["B"]  # the big aerospace line dominates the mix
 
 
-def test_returns_removes_market_move():
-    idx = pd.bdate_range("2023-01-02", periods=600)
-    rng = np.random.default_rng(0)
-    mkt, ind = rng.normal(0, .01, 600), rng.normal(0, .01, 600)
-    px = pd.DataFrame({k: 100 * np.exp(np.cumsum(mkt + w * ind + rng.normal(0, .005, 600)))
-                       for k, w in {"T": 1, "A": 1, "B": 0, "C": 0, "D": -1}.items()}, index=idx)
-    s = S.returns(px, "T")
-    assert s["A"] > 0.5 and s["A"] > s["B"]
-
-
 def test_blend_renormalises_missing_signal():
     sig = {"business": pd.Series({"A": .9, "B": .1}), "revenue_mix": pd.Series({"A": np.nan, "B": .5})}
     out = S.blend(sig, {"business": .5, "revenue_mix": .5})

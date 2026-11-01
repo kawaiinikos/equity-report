@@ -24,11 +24,11 @@ Market-wide data (rebuild with internet, both resumable): `scripts/build_univers
 prices: 3-year score history, seasonality) and `scripts/build_market_events.py` (EPS surprises, broker actions and
 insider trades for every S&P 500 stock: Earnings / Insider sector and index averages).
 
-Peers: every S&P 500 company is scored on six similarity signals (business description, 10-K revenue mix from SEC XBRL,
-return co-movement, financial profile, size, GICS/SIC industry code), blended in `src/eqr/quant/similarity.py`.
+Peers: every S&P 500 company is scored on five similarity signals (business description with the most weight, 10-K
+revenue mix from SEC XBRL, financial profile, size, GICS/SIC industry code), blended in `src/eqr/quant/similarity.py`.
 `scripts/build_peer_features.py` refreshes the descriptions and 10-K revenue lines (~25 min, resumable);
-`scripts/evaluate_peers.py` measures overlap with LSEG's published peer lists for HON (4 of 8 reachable, previously 1)
-and AMZN (3 of 5, previously 0).
+`scripts/evaluate_peers.py` measures overlap with LSEG's published peer lists for HON (2 of 8 reachable, previously 1)
+and AMZN (4 of 5, previously 0).
 
 ## Quick start (macOS / Windows / Linux)
 ```
