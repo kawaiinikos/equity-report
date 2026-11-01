@@ -2,7 +2,9 @@
 import numpy as np
 import pandas as pd
 
-from . import asof
+from . import asof, sources
+from .collectors import sec
+from .quant import events as EV
 from .charts.price import eps_chart, fan_chart, insider_bars, rec_bars
 from .collectors.yf import collect_estimates
 from .quant import earnings as E
@@ -31,7 +33,16 @@ def build(d: dict, price: float) -> dict:
     rc = E.rec_change_stats(x["up_down"], today)
     es = E.earnings_score(summ, rev, rc)
 
+    ins_cite, holdings = "Yahoo Finance insider transactions", None
     om = I.open_market(x["insider_tx"], price)
+    if sources.insider_source() == "sec" and sources.status()["sec"][0]:
+        try:
+            f4 = sec.form4(d["ticker"])
+            if len(f4):
+                f4 = f4[f4["date"] < today]
+                om, holdings, ins_cite = sec.open_market(f4), sec.holdings(f4), "SEC EDGAR Form 4 filings (open-market codes P/S)"
+        except Exception:
+            pass
     ins_score = I.insider_score(om, today)
 
     ee, re_, tr = x["earnings_estimate"], x["revenue_estimate"], x["eps_trend"]
@@ -57,16 +68,16 @@ def build(d: dict, price: float) -> dict:
             trend_rows.append([n, num(c), num(d30), num(d90), pct(c / d90 - 1)])
     est_rows = [[n, num(_g(ee, k, "avg")), num(_g(ee, k, "low")), num(_g(ee, k, "high")), str(int(_g(ee, k, "numberOfAnalysts")) if _g(ee, k, "numberOfAnalysts") == _g(ee, k, "numberOfAnalysts") else "n/a")] for k, n in names.items()]
 
-    rs = x["rec_summary"]
-    rec = {}
-    if rs is not None and len(rs):
-        r0 = rs.iloc[0]
-        rec = {"Strong Buy": int(r0["strongBuy"]), "Buy": int(r0["buy"]), "Hold": int(r0["hold"]), "Sell": int(r0["sell"]), "Strong Sell": int(r0["strongSell"])}
+    an = sources.analyst(d["ticker"], yahoo_x=x)
+    rec = {k: an["rec"].get(k, 0) for k in ("Strong Buy", "Buy", "Hold", "Sell", "Strong Sell")} if an.get("rec") else {}
     n_an = sum(rec.values())
-    mean_rec = sum(w * v for w, v in zip((1, 2, 3, 4, 5), rec.values())) / n_an if n_an else NA
+    mean_rec = an.get("rec_mean") or (sum(w * v for w, v in zip((1, 2, 3, 4, 5), rec.values())) / n_an if n_an else NA)
     label = "n/a" if n_an == 0 else ["Strong Buy", "Buy", "Hold", "Sell", "Strong Sell"][int(np.clip(round(mean_rec) - 1, 0, 4))]
 
-    pt = x["price_targets"] or {}
+    pt = {"mean": an.get("pt_mean"), "high": an.get("pt_high"), "low": an.get("pt_low")}
+    if not pt["mean"] and an["source"] != sources.yahoo.SOURCE:  # source without targets: keep Yahoo's, say so
+        pt = x["price_targets"] or {}
+        an["note"] += " Price targets from Yahoo Finance."
     fan = fan_chart(price, pt["mean"], pt["high"], pt["low"]) if pt.get("mean") else ""
     a_rev = stm["a_income"].loc["Total Revenue"].dropna().sort_index().iloc[-2:] if "Total Revenue" in stm["a_income"].index else pd.Series(dtype=float)
     rev_rows = [[f"FY{i.year} (actual)", num(v / 1e9, 2)] for i, v in a_rev.items()] + \
@@ -80,16 +91,36 @@ def build(d: dict, price: float) -> dict:
     holders = x["inst_holders"]
     inst = [[r["Holder"], pct(r["pctHeld"], 2), f"{int(r['Shares']):,}", pd.Timestamp(r["Date Reported"]).strftime("%Y-%m-%d")] for _, r in holders.head(5).iterrows()] if holders is not None else []
     ro = x["roster"]
-    execs = []
-    if ro is not None and len(ro):
+    execs, exec_cite = [], "Yahoo Finance insider roster (direct holdings only)"
+    if holdings is not None and len(holdings):
+        top = holdings.head(5)
+        execs = [[r["insider"].title(), r["role"], f"{int(r['direct']):,}", f"{int(r['indirect']):,}", f"${r['total'] * price:,.0f}", pd.Timestamp(r["as_of"]).strftime("%Y-%m-%d")] for _, r in top.iterrows()]
+        exec_cite = "SEC EDGAR Form 4 (shares owned after each insider's latest reported transaction; indirect = trusts, family, LLCs)"
+    elif ro is not None and len(ro):
         top = ro.dropna(subset=["Shares Owned Directly"]).sort_values("Shares Owned Directly", ascending=False).head(5)
-        execs = [[r["Name"].title(), r["Position"], f"{int(r['Shares Owned Directly']):,}", f"${r['Shares Owned Directly'] * price:,.0f}", pd.Timestamp(r["Position Direct Date"]).strftime("%Y-%m-%d")] for _, r in top.iterrows()]
+        execs = [[r["Name"].title(), r["Position"], f"{int(r['Shares Owned Directly']):,}", "n/a", f"${r['Shares Owned Directly'] * price:,.0f}", pd.Timestamp(r["Position Direct Date"]).strftime("%Y-%m-%d")] for _, r in top.iterrows()]
+
+    broker = []
+    ud = x["up_down"]
+    if ud is not None and len(ud):
+        u = ud.copy()
+        u.index = pd.to_datetime(u.index).tz_localize(None)
+        u = u[u.index >= today - pd.Timedelta(days=120)].sort_index(ascending=False)
+        act = {"up": "Upgrade", "down": "Downgrade", "main": "Maintain", "init": "Initiate", "reit": "Reiterate"}
+        for dt_, r in u.head(12).iterrows():
+            ptxt = ""
+            if r.get("currentPriceTarget") and r["currentPriceTarget"] == r["currentPriceTarget"] and r["currentPriceTarget"] > 0:
+                prior = r.get("priorPriceTarget")
+                ptxt = (f"{prior:,.0f} → " if prior and prior == prior and prior > 0 else "") + f"{r['currentPriceTarget']:,.0f}"
+            rating = r["ToGrade"] if not r["FromGrade"] or r["FromGrade"] == r["ToGrade"] else f"{r['FromGrade']} → {r['ToGrade']}"
+            broker.append([dt_.strftime("%Y-%m-%d"), r["Firm"], act.get(str(r["Action"]).lower(), r["Action"]), rating, ptxt or "–"])
 
     f = lambda v: "NR" if v is None else f"{v:.0f}"
     raw = {"price_target_mean": pt.get("mean"), "price_target_upside": (pt["mean"] / price - 1) if pt.get("mean") else None,
-           "consensus": label, "surprise_pos4": summ.get("pos4"), "insider_net_shares_6m": s6["net"]}
+           "consensus": label, "surprise_pos4": summ.get("pos4"), "insider_net_shares_6m": s6["net"],
+           "ltg": float(x["growth"].loc["LTG", "stockTrend"]) if x.get("growth") is not None and "LTG" in x["growth"].index else NA}
     return {
-        "raw": raw, "scores": {"earnings": es["score"], "insider_trading": ins_score},
+        "raw": raw, "events": EV.from_sources(d["ticker"], x["earnings_dates"], x["up_down"], om), "scores": {"earnings": es["score"], "insider_trading": ins_score},
         "ctx": {
             "earn_score": f(es["score"]), "earn_factors": [[LABELS[k], f(v)] for k, v in es["factors"].items()],
             "surp_summary": summ, "rev_stats": rev, "rc_stats": rc, "pt": pt,
@@ -99,6 +130,7 @@ def build(d: dict, price: float) -> dict:
             "est_rows": est_rows, "trend_rows": trend_rows, "rec_chart": rec_bars(rec) if rec else "", "rev_rows": rev_rows,
             "surprise_rows": surprise_rows, "consensus": f"{label} ({num(mean_rec, 2)}, {n_an} analysts)" if n_an else "n/a",
             "ins_score": f(ins_score), "ins_recent": recent, "ins_sum": s6, "ins_chart": insider_bars(I.monthly(om, today)),
-            "inst_rows": inst, "exec_rows": execs,
+            "inst_rows": inst, "exec_rows": execs, "exec_cite": exec_cite, "ins_cite": ins_cite, "broker_rows": broker,
+            "an_cite": an["source"], "an_note": an.get("note", ""), "mean_rec": mean_rec,
         },
     }

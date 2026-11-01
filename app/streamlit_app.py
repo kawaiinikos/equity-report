@@ -1,79 +1,109 @@
-import base64
 import os
 import sys
 from pathlib import Path
 
+import pandas as pd
 import streamlit as st
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-try:  # Streamlit Cloud: key lives in app Secrets, not in the repo
-    if "ANTHROPIC_API_KEY" in st.secrets:
-        os.environ["ANTHROPIC_API_KEY"] = st.secrets["ANTHROPIC_API_KEY"]
+try:  # Streamlit Cloud: keys live in app Secrets, never in the repo
+    for k in ("ANTHROPIC_API_KEY", "SEC_USER_AGENT", "FINNHUB_API_KEY", "FMP_API_KEY"):
+        if k in st.secrets:
+            os.environ[k] = st.secrets[k]
 except Exception:
     pass
 
-st.set_page_config(page_title="Equity Research Report Generator", layout="wide")
-st.markdown("""<style>
-[data-testid="stMetricValue"] { font-size: 1.35rem; }
-[data-testid="stMetricValue"] > div { overflow: visible; text-overflow: clip; white-space: nowrap; }
-[data-testid="stMetricLabel"] { font-size: 0.75rem; }
-</style>""", unsafe_allow_html=True)
-st.title("Equity Research Report Generator")
-st.caption("LSEG Stock Reports Plus-style detailed report · AIFA, Goethe University Frankfurt · academic demo")
+from eqr import sources  # noqa: E402  (loads .env)
 
+st.set_page_config(page_title="AIFA Group 5 · Equity Scorecard", page_icon=":material/monitoring:", layout="wide")
+st.title("Equity scorecard")
+st.caption("AIFA Group 5 · Goethe University Frankfurt · detailed stock report modelled on LSEG Stock Reports Plus (academic project)")
+
+status = sources.status()
 with st.sidebar:
     ticker = st.text_input("Ticker", "HON", help="Yahoo Finance symbol, e.g. HON, AAPL, SAP.DE").strip().upper()
-    offline = st.checkbox("Offline mode (cached data only)", value=False)
-    live = st.checkbox("Use latest live data (ignore 15 Oct 2026 cut-off)", value=False,
-                       help="Default: data through the 14 Oct 2026 close, report date 15 Oct 2026, so numbers are comparable with the LSEG benchmark.")
-    go = st.button("Generate report", type="primary", use_container_width=True)
+    live = st.toggle("Use latest live data", value=False,
+                     help="Off: report date 15 Oct 2026 with data to the 14 Oct close, comparable with the LSEG benchmark.")
+    offline = st.toggle("Offline mode (cached data only)", value=False)
+
+    st.subheader("Data sources")
+    usable = [k for k in sources.ANALYST_SOURCES if status[k][0]]
+    analyst = st.selectbox("Analyst consensus", usable, format_func=lambda k: sources.ANALYST_SOURCES[k],
+                           help="Other sources appear here once their key or login is set up (see README).")
+    insider = st.segmented_control("Insider trades", ["sec", "yahoo"], default="sec" if status["sec"][0] else "yahoo",
+                                   format_func=lambda k: sources.INSIDER_SOURCES[k])
+    with st.expander("Source status", icon=":material/database:"):
+        for k, (ok, why) in status.items():
+            label = sources.ANALYST_SOURCES.get(k, sources.INSIDER_SOURCES.get(k, k))
+            st.markdown(f"{':material/check_circle:' if ok else ':material/radio_button_unchecked:'} **{label}** – {why}")
+
+    go = st.button("Generate report", type="primary", icon=":material/description:", width="stretch")
     ready = sorted(p.stem.replace("_report", "") for p in (ROOT / "output").glob("*_report.pdf"))
-    if ready:
-        st.markdown("**Prebuilt:** " + ", ".join(ready))
-        preload = st.selectbox("Open prebuilt PDF", [""] + ready)
-    else:
-        preload = ""
+    preload = st.selectbox("Open prebuilt PDF", ready, index=None, placeholder="Choose a ticker") if ready else None
 
 os.environ["EQR_AS_OF"] = "live" if live else os.environ.get("EQR_AS_OF_DEFAULT", "2026-10-15")
 os.environ["EQR_OFFLINE"] = "1" if offline else "0"
+os.environ["EQR_ANALYST_SOURCE"] = analyst or "yahoo"
+os.environ["EQR_INSIDER_SOURCE"] = insider or "yahoo"
+
+
+def show_pdf(data: bytes, name: str):
+    st.download_button("Download PDF", data, file_name=name, mime="application/pdf", icon=":material/download:")
+    try:
+        st.pdf(data, height=900, alt=f"{name} report")
+    except Exception:  # streamlit-pdf not installed
+        import base64
+        st.iframe(f"data:application/pdf;base64,{base64.b64encode(data).decode()}", height=900)
 
 
 def show(pdf: Path, ctx: dict | None):
-    if ctx:
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Average score", f"{ctx['avg_num']:.1f}" if ctx["avg_num"] is not None else "NR")
-        c2.metric("Outlook", ctx["outlook"])
-        c3.metric("Optimized score", ctx["opt_score"])
-        c4.metric("Consensus", ctx["consensus"].split(" (")[0])
-        stats = dict(ctx["key_stats"])
-        cols = st.columns(len(stats))
-        for col, (k, v) in zip(cols, stats.items()):
-            col.metric(k, v)
+    data = pdf.read_bytes()
+    if not ctx:
+        show_pdf(data, pdf.name)
+        return
+    with st.container(horizontal=True):
+        st.metric("Average score", f"{ctx['avg_num']:.1f}" if ctx["avg_num"] is not None else "NR", border=True)
+        st.metric("Outlook", ctx["outlook"], border=True)
+        st.metric("Optimized score", ctx["opt_score"], border=True)
+        st.metric("Consensus", ctx["consensus"].split(" (")[0], border=True)
+        st.metric("Report date", ctx["date"], border=True)
+    summary, check, report = st.tabs(["Summary", "Source cross-check", "PDF report"])
+    with summary:
         left, right = st.columns([1, 2])
         with left:
-            comp = {k.replace("_", " ").title(): v for k, v in ctx["raw_scores"].items() if not k.startswith("pillar") and v is not None}
-            st.bar_chart(comp, horizontal=True)
+            comp = {v["title"]: float(v["score"]) for k, v in ctx["comp"].items() if k != "average" and v["score"] != "NR"}
+            st.bar_chart(pd.Series(comp, name="Score"), horizontal=True, color="#0F8B8D")
         with right:
             st.subheader("Highlights")
             for b in ctx["highlights"]:
-                st.write("• " + b)
-    data = pdf.read_bytes()
-    st.download_button("Download PDF", data, file_name=pdf.name, mime="application/pdf")
-    b64 = base64.b64encode(data).decode()
-    st.markdown(f'<iframe src="data:application/pdf;base64,{b64}" width="100%" height="900"></iframe>', unsafe_allow_html=True)
+                st.markdown(f"- {b}")
+            notes = ctx.get("page_notes", {}).get("overview", []) + ctx.get("page_notes", {}).get("relative_valuation", [])
+            if notes:
+                st.warning("\n\n".join(dict.fromkeys(notes)), title="Why some numbers look unusual", icon=":material/info:")
+    with check:
+        if len(ctx.get("cmp_head", [])) > 1:
+            st.dataframe(pd.DataFrame(ctx["cmp_rows"], columns=["Item"] + ctx["cmp_head"]), hide_index=True, alt="Same figures from each data source")
+            for c in ctx["cmp_cites"]:
+                st.caption(c)
+        else:
+            st.info("Only one source returned fundamentals for this ticker (SEC EDGAR covers US filers only).")
+        st.caption(f"Analyst data: {ctx.get('an_cite', '')}. {ctx.get('an_note', '')}")
+        st.caption(f"Insider data: {ctx.get('ins_cite', '')}")
+    with report:
+        show_pdf(data, pdf.name)
 
 
 if go and ticker:
     from eqr.pipeline import run_full
     try:
-        with st.status(f"Building report for {ticker}", expanded=True) as status:
+        with st.status(f"Building report for {ticker}", expanded=True) as box:
             pdf, ctx = run_full(ticker, progress=lambda m: st.write(m))
-            status.update(label="Report ready", state="complete")
+            box.update(label="Report ready", state="complete", expanded=False)
         show(pdf, ctx)
     except Exception as e:
-        st.error(f"Could not build {ticker}: {type(e).__name__}: {e}")
+        st.error(f"{type(e).__name__}: {e}", title=f"Could not build {ticker}")
         fallback = ROOT / "output" / f"{ticker}_report.pdf"
         if fallback.exists():
             st.warning("Showing the prebuilt report instead.")
@@ -81,4 +111,4 @@ if go and ticker:
 elif preload:
     show(ROOT / "output" / f"{preload}_report.pdf", None)
 else:
-    st.info("Enter a ticker and press **Generate report**.")
+    st.info("Enter a ticker and click **Generate report**, or open a prebuilt PDF from the sidebar.", icon=":material/arrow_back:")

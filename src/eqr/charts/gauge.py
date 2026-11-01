@@ -2,9 +2,11 @@
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 
-from .style import NAVY, to_svg
+from .style import BAND_NEG, BAND_NEU, BAND_NR, BAND_POS, INK, SLATE, to_svg
 
-BANDS = [(-0.4, 0.4, "#e0e0e0"), (0.5, 3.5, "#a6a6a6"), (3.5, 7.5, "#f8a880"), (7.5, 10.5, "#f38150")]
+NAVY = INK
+
+BANDS = [(-0.4, 0.4, BAND_NR), (0.5, 3.5, BAND_NEG), (3.5, 7.5, BAND_NEU), (7.5, 10.5, BAND_POS)]
 
 
 def gauge(factors: list[dict], target: str, w=7.4, h=3.0) -> str:
@@ -26,7 +28,7 @@ def gauge(factors: list[dict], target: str, w=7.4, h=3.0) -> str:
             groups.setdefault(0 if s is None else int(round(s)), []).append(t)
         for s, ts in sorted(groups.items()):
             hit = target in ts
-            ax.add_patch(Rectangle((0.15, s - 0.32), 0.1, 0.64, color=NAVY if hit else "#555555", zorder=4))
+            ax.add_patch(Rectangle((0.15, s - 0.32), 0.1, 0.64, color=NAVY if hit else SLATE, zorder=4))
             ax.text(0.2, s, "NR" if s == 0 else str(s), color="white", fontsize=6, weight="bold", ha="center", va="center", zorder=5)
             ax.plot([0.25, 0.3], [s, s], color="#555555", lw=0.6, zorder=3)
             ts = sorted(ts, key=lambda t: t != target)

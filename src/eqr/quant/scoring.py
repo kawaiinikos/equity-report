@@ -49,8 +49,11 @@ def score_frame(df: pd.DataFrame) -> pd.DataFrame:
     risk = pd.concat([_decile(_pct_rank(df, c, True)) for c in RISK_COLS], axis=1)
     out["risk"] = _to_score(risk.mean(axis=1).where(risk.notna().sum(axis=1) >= spec.MIN_RISK_FACTORS))
 
-    rs = pd.concat([_decile(_pct_rank(df, c, False)) for c in RS_COLS], axis=1)
-    out["price_momentum"] = _to_score(rs.mean(axis=1))  # relative strength only; seasonality added when 10Y history is cached
+    rs = pd.concat([_decile(_pct_rank(df, c, False)) for c in RS_COLS], axis=1).mean(axis=1)
+    if "seasonality" in df and df["seasonality"].notna().any():  # 50% relative strength + 50% seasonality
+        seas = _decile(_pct_rank(df, "seasonality", False))
+        rs = pd.concat([rs, seas], axis=1).mean(axis=1)
+    out["price_momentum"] = _to_score(rs)
     return out.join(pillars.add_prefix("pillar_"))
 
 
@@ -94,4 +97,5 @@ def factor_scores(df: pd.DataFrame) -> pd.DataFrame:
         out[c] = _decile(_pct_rank(df, c, True)).values
     rs = pd.concat([_decile(_pct_rank(df, c, False)) for c in RS_COLS], axis=1)
     out["relative_strength"] = rs.mean(axis=1).round().clip(1, 10).values
+    out["seasonality"] = _decile(_pct_rank(df, "seasonality", False)).values if "seasonality" in df else np.nan
     return out

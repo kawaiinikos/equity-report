@@ -3,3 +3,18 @@ headless = true
 
 [browser]
 gatherUsageStats = false
+
+[theme]
+base = "light"
+primaryColor = "#0F8B8D"
+textColor = "#0E1B2C"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F2F7F7"
+linkColor = "#0F8B8D"
+borderColor = "#E3E8EF"
+chartCategoricalColors = ["#0F8B8D", "#F4A259", "#0E1B2C", "#8D99AE", "#E76F51"]
+
+[theme.sidebar]
+backgroundColor = "#0E1B2C"
+textColor = "#F2F7F7"
+primaryColor = "#F4A259"

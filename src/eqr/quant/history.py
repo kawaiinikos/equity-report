@@ -133,3 +133,47 @@ def snapshots(s: pd.Series) -> dict:
         out[k] = float(past.iloc[-1]) if len(past) else None
     out["Current"] = float(s.iloc[-1])
     return out
+
+
+# ---- seasonality (Price Momentum, 50%) ----
+def monthly_returns(close: pd.DataFrame) -> pd.DataFrame:
+    m = close.resample("ME").last()
+    return m.pct_change(fill_method=None).iloc[1:]
+
+
+def seasonality_at(mret: pd.DataFrame, d: pd.Timestamp, month: int | None = None, years: int = 10) -> pd.Series:
+    """Average return of calendar `month` (default: the month of d) over the `years` before d, per ticker."""
+    month = month or d.month
+    past = mret[(mret.index < d.to_period("M").to_timestamp()) & (mret.index >= d - pd.DateOffset(years=years))]
+    rows = past[past.index.month == month]
+    return rows.mean().where(rows.notna().sum() >= 3)
+
+
+def seasonality_panel(close: pd.DataFrame, dates: pd.DatetimeIndex) -> pd.DataFrame:
+    mret = monthly_returns(close)
+    return pd.DataFrame({d: seasonality_at(mret, d) for d in dates}).T
+
+
+def seasonality_table(close: pd.DataFrame, sector: pd.Series, tk: str, d: pd.Timestamp) -> list[dict]:
+    """Current month and next two: company 10Y average, sector average and the company's rank within its sector."""
+    mret = monthly_returns(close)
+    sec = sector.get(tk)
+    peers = sector.index[sector == sec].intersection(mret.columns)
+    out = []
+    for k in range(3):
+        m = (d.month - 1 + k) % 12 + 1
+        s = seasonality_at(mret, d, m)[peers].dropna()
+        if tk not in s.index:
+            continue
+        out.append({"month": pd.Timestamp(2000, m, 1).strftime("%b"), "company": float(s[tk]), "sector": float(s.mean()),
+                    "rank": int(s.rank(ascending=False)[tk]), "n": int(len(s))})
+    return out
+
+
+def momentum_history(close: pd.DataFrame, mkt: pd.Series, sector: pd.Series, dates: pd.DatetimeIndex) -> pd.DataFrame:
+    """Price Momentum = 50% relative strength + 50% seasonality, both decile-ranked in the sector cohort, at each date."""
+    f = factor_panels(close, mkt)
+    rs = pd.concat([_decile_panel(f[c], sector, False) for c in RS]).groupby(level=0).mean().reindex(dates)
+    seas = _decile_panel(seasonality_panel(close, dates), sector, False)
+    comp = pd.concat([rs, seas]).groupby(level=0).mean()
+    return _to_score(comp)

@@ -4,29 +4,52 @@ import pandas as pd
 REPORT_LAG_DAYS = 60  # annual figures assumed known ~2 months after fiscal year-end
 
 
-def _annual(stmts: dict, row: str) -> pd.Series:
-    df = stmts["a_income"]
-    if row not in df.index:
+def _row(df, row: str) -> pd.Series:
+    if df is None or row not in df.index:
         return pd.Series(dtype=float)
-    return df.loc[row].astype(float).dropna().sort_index()
+    s = df.loc[row].astype(float).dropna()
+    s.index = pd.to_datetime(s.index).tz_localize(None)
+    return s.sort_index()
+
+
+def ttm_series(stmts: dict, row: str, per_share: bool = False) -> pd.Series:
+    """Trailing-12-month value at each fiscal period end: annual figures at year ends, rolling 4-quarter sums where
+    quarterly data exist (quarterly wins on the same date). per_share divides by diluted average shares."""
+    a = _row(stmts["a_income"], row)
+    q = _row(stmts["q_income"], row)
+    if per_share and row != "Diluted EPS":
+        a = a / _row(stmts["a_income"], "Diluted Average Shares")
+        qs = _row(stmts["q_income"], "Diluted Average Shares")
+        q = q.rolling(4).sum() / qs if len(q) >= 4 else pd.Series(dtype=float)
+    else:
+        q = q.rolling(4).sum() if len(q) >= 4 else pd.Series(dtype=float)
+    q = q.dropna()
+    return pd.concat([a[~a.index.isin(q.index)], q]).dropna().sort_index()
 
 
 def history(close: pd.Series, stmts: dict) -> dict:
-    """Monthly P/E and P/S proxies from annual statements (yfinance exposes only ~4 fiscal years)."""
-    eps, rev = _annual(stmts, "Diluted EPS"), _annual(stmts, "Total Revenue")
-    sh = _annual(stmts, "Diluted Average Shares")
-    sps = (rev / sh).dropna()
-    m = close.resample("ME").last().iloc[-60:]
+    """Weekly trailing P/E and P/S over 5 years: price / TTM EPS (sales per share) known at each date.
+
+    A period counts as known REPORT_LAG_DAYS after it ends. The last point uses the same TTM base as the current value."""
+    eps = ttm_series(stmts, "Diluted EPS")
+    sps = ttm_series(stmts, "Total Revenue", per_share=True)
+    w = close.resample("W-FRI").last().dropna().iloc[-260:]
 
     def ratio(base: pd.Series) -> pd.Series:
         out = {}
-        for d, px in m.items():
+        for d, px in w.items():
             known = base[base.index + pd.Timedelta(days=REPORT_LAG_DAYS) <= d]
             if len(known) and known.iloc[-1] > 0:
                 out[d] = px / known.iloc[-1]
         return pd.Series(out, dtype=float)
 
-    return {"trailing_pe": ratio(eps), "price_to_sales": ratio(sps)}
+    out = {"trailing_pe": ratio(eps), "price_to_sales": ratio(sps)}
+    last_d = close.index[-1]
+    for k, base in (("trailing_pe", eps), ("price_to_sales", sps)):  # end the line at the latest close
+        known = base[base.index + pd.Timedelta(days=REPORT_LAG_DAYS) <= last_d]
+        if len(known) and known.iloc[-1] > 0:
+            out[k].loc[last_d] = float(close.iloc[-1]) / known.iloc[-1]
+    return out
 
 
 def current_multiples(info: dict) -> dict:

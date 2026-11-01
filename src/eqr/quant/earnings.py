@@ -33,7 +33,8 @@ def surprise_summary(tbl: pd.DataFrame) -> dict:
     last4 = tbl.iloc[:4]
     return {"n": len(tbl), "pos": int((tbl["Category"] == "Positive").sum()), "neg": int((tbl["Category"] == "Negative").sum()),
             "inline": int((tbl["Category"] == "In-line").sum()), "pos4": int((last4["Category"] == "Positive").sum()),
-            "neg4": int((last4["Category"] == "Negative").sum()), "mean4": float(last4["Surprise"].mean())}
+            "neg4": int((last4["Category"] == "Negative").sum()), "inline4": int((last4["Category"] == "In-line").sum()),
+            "mean4": float(last4["Surprise"].mean())}
 
 
 def revision_stats(rev: pd.DataFrame | None, trend: pd.DataFrame | None) -> dict:

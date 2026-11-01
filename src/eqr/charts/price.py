@@ -48,7 +48,9 @@ def multiple_history(series, title, avg=None, sp=None, ind=None, current=None):
             ax.axhline(v, color=col, ls="--", lw=1, label=lab)
     if len(series) and current is not None and current == current:
         ax.scatter([series.index[-1]], [current], color=RED, zorder=5, s=14, label="Current")
-    ax.set_title(title, fontsize=9, loc="left"); ax.legend(frameon=False, fontsize=6, ncol=2)
+    ax.set_title(title, fontsize=8, loc="left"); ax.legend(frameon=False, fontsize=5.5, ncol=2)
+    ax.xaxis.set_major_locator(mdates.YearLocator())
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
     return to_svg(fig)
 
 
@@ -106,7 +108,7 @@ def sparkline(values, w=1.5, h=0.26):
     fig.patch.set_facecolor(NAVY)
     ax.set_facecolor(NAVY)
     if v:
-        ax.fill_between(range(len(v)), 1, v, color="#3b5f86", alpha=.9)
+        ax.fill_between(range(len(v)), 1, v, color="#0F8B8D", alpha=.9)
         ax.plot(v, color="white", lw=1)
     ax.set_ylim(1, 10)
     ax.axis("off")
@@ -117,3 +119,45 @@ def sparkline(values, w=1.5, h=0.26):
     plt.close(fig)
     s = buf.getvalue()
     return s[s.index("<svg"):]
+
+
+def score_area(s, title="", w=3.5, h=1.55):
+    """3-year score history (4-week MA) on positive / neutral / negative bands with the max and min labelled."""
+    from .style import BAND_NEG, BAND_NEU, BAND_POS, INK, TEAL
+    import pandas as pd
+    s = s.dropna()
+    fig, ax = plt.subplots(figsize=(w, h))
+    for lo, hi, c in ((0.5, 3.5, BAND_NEG), (3.5, 7.5, BAND_NEU), (7.5, 10.5, BAND_POS)):
+        ax.axhspan(lo, hi, color=c, alpha=.35, lw=0)
+    if len(s):
+        ax.fill_between(s.index, 1, s.values, color=TEAL, alpha=.85, lw=0)
+        ax.plot(s.index, s.values, color=INK, lw=.8)
+        ax.axhline(s.mean(), color=INK, ls="--", lw=.6)
+        for v, va in ((s.idxmax(), "bottom"), (s.idxmin(), "top")):
+            ax.annotate(f"{s[v]:.0f}", (v, s[v]), xytext=(0, 3 if va == "bottom" else -3), textcoords="offset points",
+                        ha="center", va=va, fontsize=6, color="white", weight="bold",
+                        bbox=dict(boxstyle="square,pad=0.15", fc=INK, ec="none"))
+    ax.set_ylim(0.5, 10.5); ax.set_yticks([2, 5.5, 9], ["Negative", "Neutral", "Positive"], fontsize=6)
+    ax.grid(False)
+    ax.xaxis.set_major_locator(mdates.YearLocator(month=10))
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m"))
+    ax.tick_params(axis="x", labelsize=6)
+    if title:
+        ax.set_title(title, fontsize=7, loc="center", weight="bold")
+    return to_svg(fig)
+
+
+def consensus_bar(mean_rec, w=3.4, h=0.55):
+    """Analyst consensus on a 5-point scale (1 = Strong Buy ... 5 = Strong Sell), drawn Strong Sell -> Strong Buy."""
+    from .style import CORAL, INK, MINT, SLATE, TEAL
+    fig, ax = plt.subplots(figsize=(w, h))
+    cols = [CORAL, "#F2B8A8", "#D5DCE4", MINT, TEAL]
+    for i, c in enumerate(cols):
+        ax.barh(0, 1, left=i, color=c, height=.5, edgecolor="white", lw=1.5)
+    for i, lab in enumerate(["Strong Sell", "Sell", "Hold", "Buy", "Strong Buy"]):
+        ax.text(i + .5, .45, lab, ha="center", va="bottom", fontsize=6, color="#4A5568")
+    if mean_rec == mean_rec and mean_rec:
+        x = 5 - (mean_rec - 1) * 5 / 4  # 1 -> 5 (right), 5 -> 0 (left)
+        ax.plot([x], [-.32], marker="^", color=INK, ms=7, clip_on=False)
+    ax.set_xlim(0, 5); ax.set_ylim(-.45, .8); ax.axis("off")
+    return to_svg(fig)

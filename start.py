@@ -12,6 +12,7 @@ from __future__ import annotations
 import hashlib
 import os
 import platform
+import re
 import shutil
 import socket
 import subprocess
@@ -126,6 +127,17 @@ def ensure_venv(py_cmd: list[str], force: bool) -> None:
     STAMP.write_text(req_hash())
 
 
+def ensure_optional() -> None:
+    """Institutional data libraries, installed only when their credentials are configured in .env."""
+    env = (ROOT / ".env").read_text() if (ROOT / ".env").exists() else ""
+    py = str(venv_python())
+    for key, module, package in (("LSEG_APP_KEY", "lseg.data", "lseg-data"), ("WRDS_USERNAME", "wrds", "wrds")):
+        if re.search(rf"^{key}=\S+", env, re.M) and subprocess.run([py, "-c", f"import {module}"], capture_output=True).returncode != 0:
+            say(f"Installing {package} ({key} found in .env)")
+            if subprocess.run([py, "-m", "pip", "install", "--quiet", package]).returncode != 0:
+                print(f"   Could not install {package}; that data source stays off.")
+
+
 def check_pdf_engine() -> None:
     say("Checking the PDF engine (WeasyPrint)")
     code = "import weasyprint; weasyprint.HTML(string='<p>ok</p>').write_pdf()"
@@ -153,6 +165,7 @@ def main() -> None:
     if not REQ.exists():
         die("requirements.txt is missing", "Run this file from inside the unzipped equity_report folder.")
     ensure_venv(py_cmd, "--reinstall" in args)
+    ensure_optional()
     check_pdf_engine()
     if "--check" in args:
         say("Setup OK")
