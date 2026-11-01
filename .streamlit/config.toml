@@ -16,5 +16,7 @@ chartCategoricalColors = ["#0F8B8D", "#F4A259", "#0E1B2C", "#8D99AE", "#E76F51"]
 
 [theme.sidebar]
 backgroundColor = "#0E1B2C"
+secondaryBackgroundColor = "#1C2E45"
 textColor = "#F2F7F7"
 primaryColor = "#F4A259"
+borderColor = "#3A4D66"
