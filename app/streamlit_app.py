@@ -15,7 +15,17 @@ try:  # Streamlit Cloud: keys live in app Secrets, never in the repo
 except Exception:
     pass
 
+# Streamlit only reloads files next to this script. After a code update (git pull on Streamlit Cloud) the old
+# eqr modules would stay in memory while templates are read fresh from disk, so drop them when src/ changed.
+_stamp = max(p.stat().st_mtime for p in (ROOT / "src" / "eqr").rglob("*.py"))
+if "eqr" in sys.modules and getattr(sys.modules["eqr"], "_code_stamp", None) != _stamp:
+    for _m in [m for m in sys.modules if m == "eqr" or m.startswith("eqr.")]:
+        del sys.modules[_m]
+
+import eqr  # noqa: E402
 from eqr import sources  # noqa: E402  (loads .env)
+
+eqr._code_stamp = _stamp
 
 st.set_page_config(page_title="AIFA Group 5 · Equity Scorecard", page_icon=":material/monitoring:", layout="wide")
 st.title("Equity scorecard")
